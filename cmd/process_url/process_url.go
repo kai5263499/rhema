@@ -19,13 +19,14 @@ import (
 )
 
 type config struct {
-	AwsDefaultRegion string `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
-	MinTextBlockSize int    `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	S3Bucket         string `env:"S3_BUCKET"`
-	TmpPath          string `env:"TMP_PATH" envDefault:"/tmp"`
-	WordsPerMinute   int    `env:"WORDS_PER_MINUTE" envDefault:"350"`
-	EspeakVoice      string `env:"ESPEAK_VOICE" envDefault:"f5"`
-	LocalPath        string `env:"LOCAL_PATH" envDefault:"/data"`
+	AwsDefaultRegion string  `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
+	MinTextBlockSize int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
+	S3Bucket         string  `env:"S3_BUCKET"`
+	TmpPath          string  `env:"TMP_PATH" envDefault:"/tmp"`
+	WordsPerMinute   int     `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	EspeakVoice      string  `env:"ESPEAK_VOICE" envDefault:"f5"`
+	LocalPath        string  `env:"LOCAL_PATH" envDefault:"/data"`
+	Atempo           float32 `env:"ATEMPO" envDefault:"2.0"`
 }
 
 var (
@@ -42,7 +43,7 @@ func main() {
 
 	contentStorage := NewContentStorage(s3svc, cfg.TmpPath, cfg.S3Bucket)
 
-	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath)
+	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
 	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath)
 	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)

@@ -13,7 +13,7 @@ WORKDIR /go/src/github.com/kai5263499/rhema
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
-	apt-get install -y git gcc make curl unzip jq lame espeak-ng espeak-ng-data ffmpeg python
+	apt-get install -y git gcc make curl unzip jq lame espeak-ng espeak-ng-data ffmpeg python ca-certificates
 
 RUN	echo "Install youtube-dl" && \
 	curl -sL https://github.com/ytdl-org/youtube-dl/releases/download/2019.11.28/youtube-dl -o /usr/local/bin/youtube-dl && \

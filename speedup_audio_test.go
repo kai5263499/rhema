@@ -61,6 +61,7 @@ var _ = Describe("speedup_audio", func() {
 			localPath:      "/tmp",
 			contentStorage: &fakeContentStore{},
 			execCommand:    fakeSUAExecCommand,
+			atempo:         2.0,
 		}
 
 		requestContent := "this is a test"

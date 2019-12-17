@@ -2,6 +2,14 @@
 builder-image:
 	docker build -t kai5263499/rhema-builder .
 
+# Build the rhema-process-url image for processing content from the command line
+process-urls-image:
+	docker build -t kai5263499/rhema-process-url -f cmd/process_url/Dockerfile .
+
+# Build the rhema-scrape image for processing content from the command line
+scrape-image:
+	docker build -t kai5263499/rhema-scrape -f cmd/scrape/Dockerfile .
+
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
 go-protos:
 	protoc -I proto/ proto/*.proto --go_out=plugins=grpc:generated
@@ -14,8 +22,8 @@ exec-interactive:
 	-e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
 	-e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
 	-e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-	-v ~/code/deproot/src/github.com/kai5263499:/go/src/github.com/kai5263499 \
-	-v ~/Dropbox/contentbot/audio:/data \
+	-v ${LOCAL_DEV_PATH}:/go/src/github.com/kai5263499 \
+	-v ${LOCAL_CONTENT_PATH}:/data \
 	--tmpfs /tmp:exec \
 	-w /go/src/github.com/kai5263499/rhema/cmd/process_url \
 	kai5263499/rhema-builder bash
