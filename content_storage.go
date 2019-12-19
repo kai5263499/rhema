@@ -88,7 +88,7 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 
 	ci.DownloadURI = urlStr
 
-	logrus.Debugf("downloadURI=%s\n", ci.DownloadURI)
+	logrus.Debugf("fullFileName=%s downloadURI=%s", fullFileName, ci.DownloadURI)
 
 	return ci, nil
 }
