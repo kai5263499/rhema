@@ -39,12 +39,10 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 	slowFullFilename := filepath.Join(sa.localPath, slowFilename)
 	tmpFullFilename := fmt.Sprintf("%s%s", slowFullFilename[:len(slowFullFilename)-4], "-TMP.mp3")
 
-	logrus.Debugf("before ffmpeg slowFullFilename=%s tmpFullFilename=%s", slowFullFilename, tmpFullFilename)
-
 	ffmpegCmd := sa.execCommand("ffmpeg",
 		"-y",
 		"-i", slowFullFilename,
-		"-filter:a", fmt.Sprintf("atempo=%f", sa.atempo), "volume=10dB",
+		"-filter:a", fmt.Sprintf("atempo=%.1f, volume=10dB", sa.atempo),
 		"-c:a", "libmp3lame", "-q:a", "4", tmpFullFilename)
 
 	if err = ffmpegCmd.Run(); err != nil {
