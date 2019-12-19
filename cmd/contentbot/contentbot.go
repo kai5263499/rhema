@@ -16,13 +16,17 @@ import (
 )
 
 type config struct {
-	SlackToken       string `env:"SLACK_TOKEN"`
-	AwsRegion        string `env:"AWS_REGION" envDefault:"us-east-1"`
-	MinTextBlockSize int    `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	S3Bucket         string `env:"S3_BUCKET"`
-	LocalPath        string `env:"LOCAL_PATH" envDefault:"/tmp"`
-	WordsPerMinute   int    `env:"WORDS_PER_MINUTE" envDefault:"350"`
-	EspeakVoice      string `env:"ESPEAK_VOICE" envDefault:"f5"`
+	SlackToken       string  `env:"SLACK_TOKEN"`
+	AwsRegion        string  `env:"AWS_REGION" envDefault:"us-east-1"`
+	MinTextBlockSize int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
+	S3Bucket         string  `env:"S3_BUCKET"`
+	TmpPath          string  `env:"TMP_PATH" envDefault:"/tmp"`
+	WordsPerMinute   int     `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	EspeakVoice      string  `env:"ESPEAK_VOICE" envDefault:"f5"`
+	LocalPath        string  `env:"LOCAL_PATH" envDefault:"/data"`
+	Atempo           float32 `env:"ATEMPO" envDefault:"2.0"`
+	ChownTo          int     `env:"CHOWN_TO" envDefault:"1000"`
+	LogLevel         string  `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 var (
@@ -35,20 +39,20 @@ func main() {
 	err = env.Parse(&cfg)
 	CheckError(err)
 
-	logrus.SetLevel(logrus.DebugLevel)
+	logrus.ParseLevel(cfg.LogLevel)
 
 	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsRegion).WithCredentials(credentials.NewEnvCredentials())))
 
 	contentStorage := NewContentStorage(s3svc, cfg.LocalPath, cfg.S3Bucket)
 
-	speedupAudo := NewSpeedupAudio(contentStorage, cfg.LocalPath)
+	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
 	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.LocalPath)
 	text2mp3 := NewText2Mp3(contentStorage, cfg.LocalPath, cfg.WordsPerMinute, cfg.EspeakVoice)
 	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.LocalPath)
 	contentProcessor := NewRequestProcessor(cfg.LocalPath, scrape, youtube, text2mp3, speedupAudo)
 
-	bot := NewBot(cfg.SlackToken, contentProcessor)
+	bot := NewBot(cfg.SlackToken, contentProcessor, cfg.LocalPath, cfg.ChownTo)
 	bot.Start()
 
 	c := make(chan os.Signal, 1)

@@ -19,6 +19,7 @@ type config struct {
 	AwsDefaultRegion string `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
 	MinTextBlockSize int    `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
 	LocalPath        string `env:"LOCAL_PATH" envDefault:"/tmp"`
+	LogLevel         string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 var (
@@ -31,13 +32,15 @@ func (fs *placeholderContentStore) Store(ci pb.Request) (pb.Request, error) { re
 
 func main() {
 	var err error
-
 	cfg = config{}
 	err = env.Parse(&cfg)
+	CheckError(err)
 
 	if len(os.Args) < 2 {
 		logrus.Errorf("wrong number of arguments\n")
 	}
+
+	logrus.ParseLevel(cfg.LogLevel)
 
 	scrape := NewScrape(&placeholderContentStore{}, uint32(cfg.MinTextBlockSize), cfg.LocalPath)
 

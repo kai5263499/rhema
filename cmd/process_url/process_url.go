@@ -16,6 +16,7 @@ import (
 	. "github.com/kai5263499/rhema"
 	. "github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
+	"github.com/sirupsen/logrus"
 )
 
 type config struct {
@@ -28,6 +29,7 @@ type config struct {
 	LocalPath        string  `env:"LOCAL_PATH" envDefault:"/data"`
 	Atempo           float32 `env:"ATEMPO" envDefault:"2.0"`
 	ChownTo          int     `env:"CHOWN_TO" envDefault:"1000"`
+	LogLevel         string  `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 var (
@@ -39,6 +41,8 @@ func main() {
 	cfg = config{}
 	err = env.Parse(&cfg)
 	CheckError(err)
+
+	logrus.ParseLevel(cfg.LogLevel)
 
 	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsDefaultRegion).WithCredentials(credentials.NewEnvCredentials())))
 
