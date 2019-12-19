@@ -77,5 +77,5 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 	}
 	youtubeCmd.Wait()
 
-	return ci, err
+	return ci, nil
 }
