@@ -23,10 +23,11 @@ type config struct {
 	MinTextBlockSize int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
 	S3Bucket         string  `env:"S3_BUCKET"`
 	TmpPath          string  `env:"TMP_PATH" envDefault:"/tmp"`
-	WordsPerMinute   int     `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	WordsPerMinute   int     `env:"WORDS_PER_MINUTE" envDefault:"250"`
 	EspeakVoice      string  `env:"ESPEAK_VOICE" envDefault:"f5"`
 	LocalPath        string  `env:"LOCAL_PATH" envDefault:"/data"`
 	Atempo           float32 `env:"ATEMPO" envDefault:"2.0"`
+	ChownTo          int     `env:"CHOWN_TO" envDefault:"1000"`
 }
 
 var (
@@ -71,7 +72,7 @@ func main() {
 
 		urlFullFilename := filepath.Join(cfg.LocalPath, baseUrlFilename)
 
-		err = DownloadUriToFile(resultingItem.Uri, urlFullFilename)
+		err = DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
 		CheckError(err)
 
 		// Get file info
@@ -81,6 +82,9 @@ func main() {
 		CheckError(err)
 		var size int64 = fileInfo.Size()
 		file.Close()
+
+		err = os.Chown(urlFullFilename, cfg.ChownTo, cfg.ChownTo)
+		CheckError(err)
 
 		fmt.Printf("%s\t%d\n", urlFullFilename, size)
 	}
