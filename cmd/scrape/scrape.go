@@ -40,7 +40,9 @@ func main() {
 		logrus.Errorf("wrong number of arguments\n")
 	}
 
-	logrus.ParseLevel(cfg.LogLevel)
+	level, err := logrus.ParseLevel(cfg.LogLevel)
+	CheckError(err)
+	logrus.SetLevel(level)
 
 	scrape := NewScrape(&placeholderContentStore{}, uint32(cfg.MinTextBlockSize), cfg.LocalPath)
 

@@ -42,7 +42,9 @@ func main() {
 	err = env.Parse(&cfg)
 	CheckError(err)
 
-	logrus.ParseLevel(cfg.LogLevel)
+	level, err := logrus.ParseLevel(cfg.LogLevel)
+	CheckError(err)
+	logrus.SetLevel(level)
 
 	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsDefaultRegion).WithCredentials(credentials.NewEnvCredentials())))
 
