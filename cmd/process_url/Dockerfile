@@ -21,7 +21,7 @@ ENV ESPEAK_VOICE="f5"
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
-    apt-get install -y lame espeak-ng espeak-ng-data ffmpeg python
+    apt-get install -y lame espeak-ng espeak-ng-data ffmpeg python curl
 
 RUN	echo "Install youtube-dl" && \
 	curl -sL https://github.com/ytdl-org/youtube-dl/releases/download/2019.11.28/youtube-dl -o /usr/local/bin/youtube-dl && \
