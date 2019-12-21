@@ -18,6 +18,10 @@ ENV LOCAL_PATH="/data"
 ENV TMP_PATH="/tmp"
 ENV WORDS_PER_MINUTE="350"
 ENV ESPEAK_VOICE="f5"
+ENV ATEMPO="2.0"
+ENV CHOWN_TO="1000"
+ENV LOG_LEVEL="info"
+ENV SLACK_TOKEN=""
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
