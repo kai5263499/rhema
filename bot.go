@@ -5,20 +5,26 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/kai5263499/rhema/domain"
+	"github.com/gofrs/uuid"
+	. "github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/nlopes/slack"
 	"github.com/sirupsen/logrus"
 )
 
-func NewBot(slackToken string, requestProcessor domain.Processor) *Bot {
+func NewBot(slackToken string, requestProcessor Processor, localPath string, chownTo int) *Bot {
 	return &Bot{
 		slackToken:       slackToken,
 		requestProcessor: requestProcessor,
+		localPath:        localPath,
+		chownTo:          chownTo,
 	}
 }
 
@@ -30,28 +36,63 @@ type Bot struct {
 	api              *slack.Client
 	rtm              *slack.RTM
 	slackToken       string
-	requestProcessor domain.Processor
+	requestProcessor Processor
+	localPath        string
+	chownTo          int
+}
+
+func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
+	newUUID := uuid.Must(uuid.NewV4())
+
+	contentRequest := pb.Request{
+		Uri:         uri,
+		Type:        pb.Request_URI,
+		SubmittedBy: user.Name,
+		SubmittedAt: uint64(time.Now().UTC().Unix()),
+		Created:     uint64(time.Now().Unix()),
+		RequestHash: newUUID.String(),
+	}
+
+	resultingItem, _ := b.requestProcessor.Process(contentRequest)
+
+	urlFilename, _ := GetFilePath(resultingItem)
+
+	baseUrlFilename := path.Base(urlFilename)
+
+	urlFullFilename := filepath.Join(b.localPath, baseUrlFilename)
+
+	DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
+
+	file, _ := os.Open(urlFullFilename)
+	fileInfo, _ := file.Stat()
+	var size int64 = fileInfo.Size()
+	file.Close()
+
+	os.Chown(urlFullFilename, b.chownTo, b.chownTo)
+
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("ok <@%s> I've processed `%s` which is `%d` bytes and downloadable from %s", user.Name, path.Base(urlFullFilename), size, resultingItem.DownloadURI), channel))
+
+	if upload {
+		params := slack.FileUploadParameters{
+			Title:          resultingItem.Title,
+			File:           urlFullFilename,
+			Channels:       []string{channel},
+			InitialComment: fmt.Sprintf("ok <@%s> I've uploaded `%s`", user.Name, urlFullFilename),
+		}
+		_, err := b.api.UploadFile(params)
+		if err != nil {
+			logrus.Errorf("error uploading file %+#v", err)
+			return
+		}
+	}
 }
 
 func (b *Bot) processMessage(ev *slack.MessageEvent) {
-	logrus.Debugf("Message: %+v", ev)
-
 	if strings.Contains(ev.Text, "uploaded a file") {
 		return
 	}
 
-	urls := URL_REGEXP.FindAllString(ev.Text, -1)
-
-	for _, parsedUrl := range urls {
-		contentRequest := &pb.Request{
-			Uri:         parsedUrl,
-			Type:        pb.Request_URI,
-			SubmittedBy: ev.User,
-			SubmittedAt: uint64(time.Now().UTC().Unix()),
-		}
-		// TODO: Process request
-		logrus.Debugf("contentRequest=%#+v", contentRequest)
-	}
+	uris := URL_REGEXP.FindAllString(ev.Text, -1)
 
 	user, err := b.api.GetUserInfo(ev.User)
 	if err != nil {
@@ -59,8 +100,15 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 		return
 	}
 
-	if len(urls) > 0 {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("ok <@%s> I'll process %d url", user.Name, len(urls)), ev.Channel))
+	if len(uris) < 1 {
+		logrus.Tracef("no uris")
+		return
+	}
+
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("got it <@%s> I'll process %d url", user.Name, len(uris)), ev.Channel))
+
+	for _, parsedUri := range uris {
+		go b.processUri(parsedUri, user, ev.Channel, false)
 	}
 }
 
@@ -91,34 +139,40 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 		logrus.Debugf("parsed %d urls %+v", len(urls), urls)
 
 		for _, parsedUrl := range urls {
+			newUUID := uuid.Must(uuid.NewV4())
 			unescapedUrl, _ := url.QueryUnescape(parsedUrl)
-			contentRequest := &pb.Request{
+			contentRequest := pb.Request{
 				Uri:         unescapedUrl,
 				Type:        pb.Request_URI,
 				SubmittedBy: ev.File.User,
 				SubmittedAt: uint64(time.Now().UTC().Unix()),
+				RequestHash: newUUID.String(),
 			}
 
-			// TODO: Process request
-			logrus.Debugf("contentRequest=%#+v", contentRequest)
+			b.requestProcessor.Process(contentRequest)
 		}
 	} else {
 
-		contentRequest := &pb.Request{
+		logrus.Debugf("treating upload as text")
+
+		newUUID := uuid.Must(uuid.NewV4())
+
+		contentRequest := pb.Request{
 			Uri:         file.URLPrivate,
 			Title:       file.Title,
 			Type:        pb.Request_TEXT,
 			Text:        bodyStr,
 			SubmittedBy: ev.File.User,
 			SubmittedAt: uint64(time.Now().UTC().Unix()),
+			RequestHash: newUUID.String(),
 		}
 
-		// TODO: Process request
-		logrus.Debugf("contentRequest=%#+v", contentRequest)
+		b.requestProcessor.Process(contentRequest)
 	}
 }
 
 func (b *Bot) slackReadLoop() {
+	logrus.Debugf("start slack read loop")
 Loop:
 	for {
 		select {
@@ -129,8 +183,10 @@ Loop:
 			case *slack.ConnectedEvent:
 				logrus.Infof("Connection counter: %d", ev.ConnectionCount)
 			case *slack.MessageEvent:
+				logrus.Debugf("message event received!")
 				go b.processMessage(ev)
 			case *slack.FileSharedEvent:
+				logrus.Debugf("file shared event recieved!")
 				go b.processFileUpload(ev)
 			case *slack.RTMError:
 				logrus.Errorf("RTMError: %s", ev.Error())
@@ -143,17 +199,22 @@ Loop:
 		}
 	}
 
-	logrus.Infof("bot read loop finished")
+	logrus.Debugf("slack read loop finished")
 }
 
 func (b *Bot) Start() {
 	logrus.Debugf("connecting to slack")
 
-	b.api = slack.New(b.slackToken)
-	b.api.SetUserAsActive()
+	b.api = slack.New(
+		b.slackToken,
+	)
+
 	b.rtm = b.api.NewRTM()
 	go b.rtm.ManageConnection()
 	go b.slackReadLoop()
+
+	channel, err := b.api.JoinChannel("content")
+	logrus.Debugf("join channel channel=%+v err=%v", channel, err)
 }
 
 func init() {

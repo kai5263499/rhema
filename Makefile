@@ -22,10 +22,12 @@ exec-interactive:
 	-e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
 	-e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
 	-e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+	-e SLACK_TOKEN="${SLACK_TOKEN}" \
+	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-v ${LOCAL_DEV_PATH}:/go/src/github.com/kai5263499 \
 	-v ${LOCAL_CONTENT_PATH}:/data \
 	--tmpfs /tmp:exec \
-	-w /go/src/github.com/kai5263499/rhema/cmd/process_url \
+	-w /go/src/github.com/kai5263499/rhema/cmd/contentbot \
 	kai5263499/rhema-builder bash
 
 test:

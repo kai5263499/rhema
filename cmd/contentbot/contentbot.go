@@ -39,18 +39,22 @@ func main() {
 	err = env.Parse(&cfg)
 	CheckError(err)
 
-	logrus.ParseLevel(cfg.LogLevel)
+	level, err := logrus.ParseLevel(cfg.LogLevel)
+	CheckError(err)
+	logrus.SetLevel(level)
+
+	logrus.Infof("parsed log level to %s", cfg.LogLevel)
 
 	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsRegion).WithCredentials(credentials.NewEnvCredentials())))
 
-	contentStorage := NewContentStorage(s3svc, cfg.LocalPath, cfg.S3Bucket)
+	contentStorage := NewContentStorage(s3svc, cfg.TmpPath, cfg.S3Bucket)
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
-	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.LocalPath)
-	text2mp3 := NewText2Mp3(contentStorage, cfg.LocalPath, cfg.WordsPerMinute, cfg.EspeakVoice)
-	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.LocalPath)
-	contentProcessor := NewRequestProcessor(cfg.LocalPath, scrape, youtube, text2mp3, speedupAudo)
+	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath)
+	text2mp3 := NewText2Mp3(contentStorage, cfg.TmpPath, cfg.WordsPerMinute, cfg.EspeakVoice)
+	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)
+	contentProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo)
 
 	bot := NewBot(cfg.SlackToken, contentProcessor, cfg.LocalPath, cfg.ChownTo)
 	bot.Start()

@@ -12,7 +12,7 @@ require (
 	github.com/headzoo/surf v1.0.0
 	github.com/headzoo/ut v0.0.0-20181013193318-a13b5a7a02ca // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/nlopes/slack v0.6.0
+	github.com/nlopes/slack v0.6.1-0.20191106133607-d06c2a2b3249
 	github.com/onsi/ginkgo v1.10.3
 	github.com/onsi/gomega v1.7.1
 	github.com/sirupsen/logrus v1.4.2

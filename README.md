@@ -23,14 +23,14 @@ make exec-interactive
 
 ## Usage
 
-Use the scrape image to test out 
+Use the scrape image to test scraping a url of its content
 ~~~~bash
 docker run \
 --rm \
 kai5263499/rhema-scrape "${URI}"
 ~~~~
 
-process-url
+Use the process-url image to process a URL into an mp3 stored in the `${LOCAL_PATH}` directory
 ~~~~bash
 docker run \
 --rm \
