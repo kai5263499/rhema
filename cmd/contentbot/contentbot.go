@@ -17,7 +17,7 @@ import (
 
 type config struct {
 	SlackToken       string  `env:"SLACK_TOKEN"`
-	AwsRegion        string  `env:"AWS_REGION" envDefault:"us-east-1"`
+	AwsDefaultRegion string  `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
 	MinTextBlockSize int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
 	S3Bucket         string  `env:"S3_BUCKET"`
 	TmpPath          string  `env:"TMP_PATH" envDefault:"/tmp"`
@@ -45,7 +45,7 @@ func main() {
 
 	logrus.Infof("parsed log level to %s", cfg.LogLevel)
 
-	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsRegion).WithCredentials(credentials.NewEnvCredentials())))
+	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsDefaultRegion).WithCredentials(credentials.NewEnvCredentials())))
 
 	contentStorage := NewContentStorage(s3svc, cfg.TmpPath, cfg.S3Bucket)
 
