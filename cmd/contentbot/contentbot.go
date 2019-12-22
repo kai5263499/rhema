@@ -43,8 +43,6 @@ func main() {
 	CheckError(err)
 	logrus.SetLevel(level)
 
-	logrus.Infof("parsed log level to %s", cfg.LogLevel)
-
 	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsDefaultRegion).WithCredentials(credentials.NewEnvCredentials())))
 
 	contentStorage := NewContentStorage(s3svc, cfg.TmpPath, cfg.S3Bucket)
