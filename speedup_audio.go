@@ -65,7 +65,10 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 
-	sa.contentStorage.Store(ci)
+	storedItem, err := sa.contentStorage.Store(ci)
+	if err != nil {
+		return ci, err
+	}
 
-	return ci, nil
+	return storedItem, nil
 }
