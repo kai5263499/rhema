@@ -39,7 +39,7 @@ func getExtFromType(contentType pb.Request_ContentType) (string, error) {
 }
 
 func getExtFromUri(requestUri string) (string, error) {
-	logrus.Debugf("parsing title from uri %s\n", requestUri)
+	logrus.Debugf("parsing ext from uri %s\n", requestUri)
 	u, err := url.ParseRequestURI(requestUri)
 	if err != nil {
 		return "", err

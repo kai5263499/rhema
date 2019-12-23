@@ -54,6 +54,7 @@ var _ = Describe("content_item", func() {
 		tests := []uriParseTest{
 			{uri: "http://somedomain.com/somefile.txt", want: "txt"},
 			{uri: "http://anotherdomain.com/hot_new_lecture.mp3", want: "mp3"},
+			{uri: "https://ia601407.us.archive.org/32/items/videoplayback_20191122_2202/videoplayback.mp4", want: "mp4"},
 		}
 
 		for _, tc := range tests {
@@ -66,6 +67,7 @@ var _ = Describe("content_item", func() {
 		tests := []uriParseTest{
 			{uri: "http://somedomain.com/somefile.txt", want: "somefile"},
 			{uri: "http://anotherdomain.com/hot_new_lecture.mp3", want: "hot_new_lecture"},
+			{uri: "https://ia601407.us.archive.org/32/items/videoplayback_20191122_2202/videoplayback.mp4", want: "videoplayback"},
 		}
 
 		for _, tc := range tests {
