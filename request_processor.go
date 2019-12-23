@@ -32,7 +32,9 @@ type RequestProcessor struct {
 }
 
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.Request_ContentType {
-	if strings.Contains(requestUri, "youtu.be") || strings.Contains(requestUri, "www.youtube.com") {
+	if strings.Contains(requestUri, "youtu.be") ||
+		strings.Contains(requestUri, "www.youtube.com") ||
+		strings.Contains(requestUri, "facebook.com") {
 		if strings.Contains(requestUri, "playlist") {
 			return pb.Request_YOUTUBE_LIST
 		} else {
@@ -76,7 +78,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 
 	ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 	parsedTitle, err := parseTitleFromUri(ci.Uri)
-	if err != nil {
+	if err != nil && len(parsedTitle) > 4 {
 		ci.Title = parsedTitle
 	}
 
