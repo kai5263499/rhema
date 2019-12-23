@@ -49,6 +49,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 	contentRequest := pb.Request{
 		Uri:         uri,
 		Type:        pb.Request_URI,
+		Title:       newUUID.String(),
 		SubmittedBy: user.Name,
 		SubmittedAt: uint64(time.Now().UTC().Unix()),
 		Created:     uint64(time.Now().UTC().Unix()),
@@ -201,6 +202,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 			contentRequest := pb.Request{
 				Uri:         unescapedUrl,
 				Type:        pb.Request_URI,
+				Title:       newUUID.String(),
 				SubmittedBy: ev.File.User,
 				SubmittedAt: uint64(time.Now().UTC().Unix()),
 				RequestHash: newUUID.String(),
