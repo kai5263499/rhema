@@ -23,14 +23,20 @@ make exec-interactive
 
 ## Usage
 
+This repo contains several related sub-projects that are all avaliable as public Docker images.
+
+### Scrape
 Use the scrape image to test scraping a url of its content
+
 ~~~~bash
 docker run \
 --rm \
 kai5263499/rhema-scrape "${URI}"
 ~~~~
 
+### process-url
 Use the process-url image to process a URL into an mp3 stored in the `${LOCAL_PATH}` directory
+
 ~~~~bash
 docker run \
 --rm \
@@ -43,13 +49,29 @@ docker run \
 kai5263499/rhema-process-url "${URI}"
 ~~~~
 
+### bot
+Use the bot image to connect to have a bot listen for URLS posted on a slack channel and convert those to audio, stored in a `${LOCAL_PATH}` directory
+
+~~~~bash
+docker run \
+-it --rm \
+-e S3_BUCKET="${S3_BUCKET}" \
+-e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
+-e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+-e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+-e SLACK_TOKEN="${SLACK_TOKEN}" \
+-e LOG_LEVEL="${LOG_LEVEL}" \
+-v ${LOCAL_CONTENT_PATH}:/data \
+-v ${LOCAL_TMP_PATH}:/tmp \
+kai5263499/rhema-bot
+~~~~
+
 # Misc
 
 There are a few other optional parameters that can be set.
 
-`WORDS_PER_MINUTE` - How fast espeak should make its resulting speech
-
-`ATEMPO` - How much to make audio and video content. This is a floating point decimal where the default is 2.0 or 2x the origional speed
+* `WORDS_PER_MINUTE` - How fast espeak should make its resulting speech
+* `ATEMPO` - How much to make audio and video content. This is a floating point decimal where the default is 2.0 or 2x the origional speed
 
 Possible espeak-ng voice options for the optional `ESPEAK_VOICE` parameter include the following from `/usr/lib/x86_64-linux-gnu/espeak-ng-data/voices/!v/`:
 ```
