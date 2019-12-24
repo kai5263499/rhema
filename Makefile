@@ -17,7 +17,6 @@ go-protos:
 # Run an interactive shell for development and testing
 exec-interactive:
 	docker run -it --rm \
-	-e PULSE_SERVER=172.17.0.1 \
 	-e S3_BUCKET="${S3_BUCKET}" \
 	-e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
 	-e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
