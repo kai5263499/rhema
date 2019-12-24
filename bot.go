@@ -19,12 +19,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func NewBot(slackToken string, requestProcessor Processor, localPath string, chownTo int) *Bot {
+func NewBot(slackToken string, requestProcessor Processor, localPath string, chownTo int, channels []string) *Bot {
 	return &Bot{
 		slackToken:       slackToken,
 		requestProcessor: requestProcessor,
 		localPath:        localPath,
 		chownTo:          chownTo,
+		channels:         channels,
 	}
 }
 
@@ -39,6 +40,8 @@ type Bot struct {
 	requestProcessor Processor
 	localPath        string
 	chownTo          int
+	channels         []string
+	slackChannels    []*slack.Channel
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
@@ -261,6 +264,24 @@ Loop:
 	logrus.Debugf("slack read loop finished")
 }
 
+func (b *Bot) joinChannels() {
+	b.slackChannels = make([]*slack.Channel, len(b.channels))
+	for _, chanStr := range b.channels {
+		channel, err := b.api.JoinChannel(chanStr)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"channel": chanStr,
+				"err":     err,
+			}).Errorf("failed to join channel")
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"channel": chanStr,
+			}).Debugf("joined channel")
+			b.slackChannels = append(b.slackChannels, channel)
+		}
+	}
+}
+
 func (b *Bot) Start() {
 	logrus.Debugf("connecting to slack")
 
@@ -272,8 +293,7 @@ func (b *Bot) Start() {
 	go b.rtm.ManageConnection()
 	go b.slackReadLoop()
 
-	channel, err := b.api.JoinChannel("content")
-	logrus.Debugf("join channel channel=%+v err=%v", channel, err)
+	b.joinChannels()
 }
 
 func init() {
