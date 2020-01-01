@@ -23,6 +23,7 @@ exec-interactive:
 	-e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
 	-e SLACK_TOKEN="${SLACK_TOKEN}" \
 	-e LOG_LEVEL="${LOG_LEVEL}" \
+	-e CHANNELS="${CHANNELS}" \
 	-v ${LOCAL_DEV_PATH}:/go/src/github.com/kai5263499 \
 	-v ${LOCAL_CONTENT_PATH}:/data \
 	--tmpfs /tmp:exec \
