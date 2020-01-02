@@ -25,10 +25,9 @@ ENV SLACK_TOKEN=""
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
-    apt-get install -y lame espeak-ng espeak-ng-data ffmpeg python
+    apt-get install -y lame espeak-ng espeak-ng-data ffmpeg python ca-certificates
 
 COPY --from=builder /usr/local/bin/youtube-dl /usr/local/bin/youtube-dl
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/contentbot/deps /
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/contentbot/contentbot /contentbot
 
