@@ -69,8 +69,8 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 		"-o", fmt.Sprintf("%s.%%(ext)s", mp3FullFilename),
 		ci.Uri)
 
-	youtubeCmd.Stdout = nil
-	youtubeCmd.Stderr = nil
+	youtubeCmd.Stdout = os.Stdout
+	youtubeCmd.Stderr = os.Stderr
 
 	if err = youtubeCmd.Run(); err != nil {
 		return ci, err
