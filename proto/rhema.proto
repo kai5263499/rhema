@@ -36,7 +36,14 @@ message Response {
         ERROR = 0;
         ACCEPTED = 1;
     }
-
     string RequestHash = 1;
     ResponseCode Code = 2;
+}
+
+enum BotAction {
+    SET_CONFIG = 0;
+    GET_CONFIG = 1;
+    SHOW_SETTINGS = 2;
+    HELP = 4;
+
 }

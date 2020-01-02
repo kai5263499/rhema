@@ -79,3 +79,22 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 
 	return ci, nil
 }
+
+func (yt *YouTube) SetConfig(key string, value string) bool {
+	switch key {
+	case "localpath":
+		yt.localPath = value
+		return true
+	default:
+		return false
+	}
+}
+
+func (yt *YouTube) GetConfig(key string) (bool, string) {
+	switch key {
+	case "localpath":
+		return true, yt.localPath
+	default:
+		return false, ""
+	}
+}

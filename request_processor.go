@@ -135,3 +135,51 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		return ci, fmt.Errorf("unknown content type %s", ci.Type.String())
 	}
 }
+
+func (rp *RequestProcessor) SetConfig(key string, value string) bool {
+	ret1 := rp.youtube.SetConfig(key, value)
+	ret2 := rp.scrape.SetConfig(key, value)
+	ret3 := rp.text2mp3.SetConfig(key, value)
+	ret4 := rp.speedupAudio.SetConfig(key, value)
+
+	ret5 := false
+	switch key {
+	case "localpath":
+		rp.localPath = value
+		ret5 = true
+	}
+
+	return ret1 || ret2 || ret3 || ret4 || ret5
+}
+
+func (rp *RequestProcessor) GetConfig(key string) (bool, string) {
+	var found bool
+	var val string
+
+	found, val = rp.youtube.GetConfig(key)
+	if found {
+		return found, val
+	}
+
+	found, val = rp.scrape.GetConfig(key)
+	if found {
+		return found, val
+	}
+
+	found, val = rp.text2mp3.GetConfig(key)
+	if found {
+		return found, val
+	}
+
+	found, val = rp.speedupAudio.GetConfig(key)
+	if found {
+		return found, val
+	}
+
+	switch key {
+	case "localpath":
+		return true, rp.localPath
+	default:
+		return false, ""
+	}
+}

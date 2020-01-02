@@ -2,10 +2,12 @@ package rhema
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -120,4 +122,32 @@ func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
 	}
 
 	return s.contentStorage.Store(ci)
+}
+
+func (s *Scrape) SetConfig(key string, value string) bool {
+	switch key {
+	case "mintextblocksize":
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		s.minTextBlockSize = uint32(v)
+		return true
+	case "localpath":
+		s.localPath = value
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Scrape) GetConfig(key string) (bool, string) {
+	switch key {
+	case "mintextblocksize":
+		return true, fmt.Sprintf("%d", s.minTextBlockSize)
+	case "localpath":
+		return true, s.localPath
+	default:
+		return false, ""
+	}
 }

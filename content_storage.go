@@ -92,3 +92,27 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 
 	return ci, nil
 }
+
+func (cs *ContentStorage) SetConfig(key string, value string) bool {
+	switch key {
+	case "s3bucket":
+		cs.s3Bucket = value
+		return true
+	case "localpath":
+		cs.localPath = value
+		return true
+	}
+
+	return false
+}
+
+func (cs *ContentStorage) GetConfig(key string) (bool, string) {
+	switch key {
+	case "s3bucket":
+		return true, cs.s3Bucket
+	case "localpath":
+		return true, cs.localPath
+	default:
+		return false, ""
+	}
+}

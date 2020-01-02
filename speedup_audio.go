@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
@@ -71,4 +72,32 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 	}
 
 	return storedItem, nil
+}
+
+func (sa *SpeedupAudio) SetConfig(key string, value string) bool {
+	switch key {
+	case "atempo":
+		f, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return false
+		}
+		sa.atempo = float32(f)
+		return true
+	case "localpath":
+		sa.localPath = value
+		return true
+	default:
+		return false
+	}
+}
+
+func (sa *SpeedupAudio) GetConfig(key string) (bool, string) {
+	switch key {
+	case "atempo":
+		return true, fmt.Sprintf("%.1f", sa.atempo)
+	case "localpath":
+		return true, sa.localPath
+	default:
+		return false, ""
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
@@ -109,4 +110,38 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 	ci.Size = uint64(fileInfo.Size())
 
 	return tm.contentStorage.Store(ci)
+}
+
+func (tm *Text2Mp3) SetConfig(key string, value string) bool {
+	switch key {
+	case "espeakvoice":
+		tm.espeakVoice = value
+		return true
+	case "wordsperminute":
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+
+		tm.wordsPerMinute = v
+		return true
+	case "localpath":
+		tm.localPath = value
+		return true
+	default:
+		return false
+	}
+}
+
+func (tm *Text2Mp3) GetConfig(key string) (bool, string) {
+	switch key {
+	case "espeakvoice":
+		return true, tm.espeakVoice
+	case "wordsperminute":
+		return true, fmt.Sprintf("%d", tm.wordsPerMinute)
+	case "localpath":
+		return true, tm.localPath
+	default:
+		return false, ""
+	}
 }

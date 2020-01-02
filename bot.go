@@ -13,20 +13,37 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
+	"github.com/kai5263499/glossa"
 	. "github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/nlopes/slack"
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	SUCCESS_EMOJI = ":heavy_check_mark:"
+	FAILURE_EMOJI = ":X:"
+)
+
+type botCommand struct {
+	action  pb.BotAction
+	pattern glossa.Pattern
+}
+
 func NewBot(slackToken string, requestProcessor Processor, localPath string, chownTo int, channels []string) *Bot {
-	return &Bot{
+	bot := &Bot{
 		slackToken:       slackToken,
 		requestProcessor: requestProcessor,
 		localPath:        localPath,
 		chownTo:          chownTo,
 		channels:         channels,
+		patterns:         make([]botCommand, 0),
 	}
+
+	commands, _ := bot.initPatterns()
+	bot.patterns = commands
+
+	return bot
 }
 
 var (
@@ -42,6 +59,7 @@ type Bot struct {
 	chownTo          int
 	channels         []string
 	slackChannels    []*slack.Channel
+	patterns         []botCommand
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
@@ -61,7 +79,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	resultingItem, err := b.requestProcessor.Process(contentRequest)
 	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("uh oh <@%s> I failed to process `%s` err=%+#v", user.Name, uri, err), channel))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to process `%s` err=%+#v", FAILURE_EMOJI, user.Name, uri, err), channel))
 		logrus.WithFields(logrus.Fields{
 			"uri": uri,
 			"err": err,
@@ -71,7 +89,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	urlFilename, err := GetFilePath(resultingItem)
 	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("uh oh <@%s> I failed to get file path `%s` err=%+#v", user.Name, resultingItem.Uri, err), channel))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to get file path `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.Uri, err), channel))
 		logrus.WithFields(logrus.Fields{
 			"uri": uri,
 			"err": err,
@@ -85,7 +103,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	err = DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
 	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("uh oh <@%s> I failed to download `%s` -> `%s` err=%+#v", user.Name, resultingItem.DownloadURI, path.Base(urlFullFilename), err), channel))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to download `%s` -> `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.DownloadURI, path.Base(urlFullFilename), err), channel))
 		logrus.WithFields(logrus.Fields{
 			"downloadURI":     resultingItem.DownloadURI,
 			"urlFullFilename": urlFullFilename,
@@ -96,7 +114,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	file, err := os.Open(urlFullFilename)
 	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("uh oh <@%s> I failed to open `%s` err=%+#v", user.Name, path.Base(urlFullFilename), err), channel))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to open `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
 		logrus.WithFields(logrus.Fields{
 			"urlFullFilename": urlFullFilename,
 			"err":             err,
@@ -106,7 +124,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("uh oh <@%s> I failed to stat `%s` err=%+#v", user.Name, path.Base(urlFullFilename), err), channel))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to stat `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
 		logrus.WithFields(logrus.Fields{
 			"urlFullFilename": urlFullFilename,
 			"err":             err,
@@ -119,7 +137,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	err = os.Chown(urlFullFilename, b.chownTo, b.chownTo)
 	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("uh oh <@%s> I failed to chown `%s` to `%d` err=%+#v", user.Name, path.Base(urlFullFilename), b.chownTo, err), channel))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to chown `%s` to `%d` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), b.chownTo, err), channel))
 		logrus.WithFields(logrus.Fields{
 			"urlFullFilename": urlFullFilename,
 			"chownTo":         b.chownTo,
@@ -128,14 +146,14 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 		return
 	}
 
-	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("ok <@%s> I've processed `%s` which is `%d` bytes and downloadable from %s", user.Name, path.Base(urlFullFilename), size, resultingItem.DownloadURI), channel))
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I've processed `%s` which is `%d` bytes and downloadable from %s", SUCCESS_EMOJI, user.Name, path.Base(urlFullFilename), size, resultingItem.DownloadURI), channel))
 
 	if upload {
 		params := slack.FileUploadParameters{
 			Title:          resultingItem.Title,
 			File:           urlFullFilename,
 			Channels:       []string{channel},
-			InitialComment: fmt.Sprintf("ok <@%s> I've uploaded `%s`", user.Name, urlFullFilename),
+			InitialComment: fmt.Sprintf("%s <@%s> I've uploaded `%s`", SUCCESS_EMOJI, user.Name, urlFullFilename),
 		}
 		_, err := b.api.UploadFile(params)
 		if err != nil {
@@ -153,20 +171,51 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 		return
 	}
 
-	uris := URL_REGEXP.FindAllString(ev.Text, -1)
-
 	user, err := b.api.GetUserInfo(ev.User)
 	if err != nil {
 		logrus.Errorf("error retrieving user info %v", err)
 		return
 	}
 
+	for _, pat := range b.patterns {
+		matched, args, err := pat.pattern.Match(ev.Text)
+
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+			}).Errorf("error processing command")
+			continue
+		}
+
+		logrus.WithFields(logrus.Fields{
+			"pattern":  pat.pattern,
+			"matched":  matched,
+			"action":   pat.action,
+			"args_len": len(args),
+		}).Debugf("pattern match")
+
+		if !matched {
+			continue
+		}
+
+		switch pat.action {
+		case pb.BotAction_GET_CONFIG:
+			b.getConfig(args[0].(string), user, ev.Channel)
+		case pb.BotAction_SET_CONFIG:
+			b.setConfig(args[0].(string), args[1].(string), user, ev.Channel)
+		}
+
+		return
+	}
+
+	uris := URL_REGEXP.FindAllString(ev.Text, -1)
+
 	if len(uris) < 1 {
 		logrus.Tracef("no uris")
 		return
 	}
 
-	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("got it <@%s> I'll process %d url", user.Name, len(uris)), ev.Channel))
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I'll process %d url", SUCCESS_EMOJI, user.Name, len(uris)), ev.Channel))
 
 	for _, parsedUri := range uris {
 		go b.processUri(parsedUri, user, ev.Channel, false)
@@ -294,6 +343,66 @@ func (b *Bot) Start() {
 	go b.slackReadLoop()
 
 	b.joinChannels()
+}
+
+func (b *Bot) getConfig(key string, user *slack.User, channel string) {
+	found, val := b.requestProcessor.GetConfig(key)
+
+	logrus.WithFields(logrus.Fields{
+		"found": found,
+		"val":   val,
+	}).Debugf("get setting")
+
+	if found {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> config property %s=%s", SUCCESS_EMOJI, user.Name, key, val), channel))
+	} else {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> config property %s not found", FAILURE_EMOJI, user.Name, key), channel))
+	}
+}
+
+func (b *Bot) setConfig(key string, val string, user *slack.User, channel string) {
+	result := b.requestProcessor.SetConfig(key, val)
+
+	if result {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> config property %s set to %s", SUCCESS_EMOJI, user.Name, key, val), channel))
+	} else {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> config property %s not set to %s", FAILURE_EMOJI, user.Name, key, val), channel))
+	}
+}
+
+func (b *Bot) initPatterns() ([]botCommand, error) {
+	patterns := make([]botCommand, 0)
+
+	parser, err := glossa.NewParser()
+	if err != nil {
+		return nil, err
+	}
+
+	pattern1, err := parser.Parse(`set <string> to <string>`)
+	if err != nil {
+		return nil, err
+	}
+
+	bc1 := botCommand{
+		pattern: pattern1,
+		action:  pb.BotAction_SET_CONFIG,
+	}
+
+	patterns = append(patterns, bc1)
+
+	pattern2, err := parser.Parse(`get <string>`)
+	if err != nil {
+		return nil, err
+	}
+
+	bc2 := botCommand{
+		pattern: pattern2,
+		action:  pb.BotAction_GET_CONFIG,
+	}
+
+	patterns = append(patterns, bc2)
+
+	return patterns, nil
 }
 
 func init() {
