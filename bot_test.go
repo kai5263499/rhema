@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("content_storage", func() {
-	It("Should store the text file in S3", func() {
+var _ = Describe("bot", func() {
+	It("Should bot responsibly", func() {
 		var err error
 		Expect(err).To(BeNil())
 	})
