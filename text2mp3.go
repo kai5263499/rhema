@@ -83,6 +83,8 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 	if err = ttsCmd.Run(); err != nil {
 		return ci, err
 	}
+	ttsCmd.Stdout = os.Stdout
+	ttsCmd.Stderr = os.Stderr
 	ttsCmd.Wait()
 
 	logrus.Debugf("running lame command with wavFilename=%s mp3Filename=%s\n", wavFullFilename, mp3FullFilename)
@@ -90,6 +92,8 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 	if err = lameCmd.Run(); err != nil {
 		return ci, err
 	}
+	lameCmd.Stdout = os.Stdout
+	lameCmd.Stderr = os.Stderr
 	lameCmd.Wait()
 
 	if err = os.Remove(wavFullFilename); err != nil {

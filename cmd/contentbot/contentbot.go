@@ -28,6 +28,7 @@ type config struct {
 	ChownTo          int      `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel         string   `env:"LOG_LEVEL" envDefault:"info"`
 	Channels         []string `env:"CHANNELS" envDefault:"content"`
+	TitleLengthLimit int      `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
 }
 
 var (
@@ -50,10 +51,10 @@ func main() {
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
-	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath)
+	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath, cfg.TitleLengthLimit)
 	text2mp3 := NewText2Mp3(contentStorage, cfg.TmpPath, cfg.WordsPerMinute, cfg.EspeakVoice)
 	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)
-	contentProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo)
+	contentProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit)
 
 	bot := NewBot(cfg.SlackToken, contentProcessor, cfg.LocalPath, cfg.ChownTo, cfg.Channels)
 	bot.Start()

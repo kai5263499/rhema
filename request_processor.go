@@ -3,6 +3,7 @@ package rhema
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -13,22 +14,24 @@ import (
 
 var _ domain.Processor = (*RequestProcessor)(nil)
 
-func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter) *RequestProcessor {
+func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, titleLengthLimit int) *RequestProcessor {
 	return &RequestProcessor{
-		youtube:      youtube,
-		scrape:       scrape,
-		text2mp3:     text2mp3,
-		speedupAudio: speedupAudio,
-		localPath:    localPath,
+		youtube:          youtube,
+		scrape:           scrape,
+		text2mp3:         text2mp3,
+		speedupAudio:     speedupAudio,
+		localPath:        localPath,
+		titleLengthLimit: titleLengthLimit,
 	}
 }
 
 type RequestProcessor struct {
-	youtube      domain.Converter
-	scrape       domain.Converter
-	text2mp3     domain.Converter
-	speedupAudio domain.Converter
-	localPath    string
+	youtube          domain.Converter
+	scrape           domain.Converter
+	text2mp3         domain.Converter
+	speedupAudio     domain.Converter
+	localPath        string
+	titleLengthLimit int
 }
 
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.Request_ContentType {
@@ -80,6 +83,10 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	parsedTitle, err := parseTitleFromUri(ci.Uri)
 	if err != nil && len(parsedTitle) > 4 {
 		ci.Title = parsedTitle
+	}
+
+	if len(ci.Title) > rp.titleLengthLimit {
+		ci.Title = ci.Title[0:rp.titleLengthLimit]
 	}
 
 	switch ci.Type {
@@ -144,6 +151,12 @@ func (rp *RequestProcessor) SetConfig(key string, value string) bool {
 
 	ret5 := false
 	switch key {
+	case "titlelengthlimit":
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		rp.titleLengthLimit = v
 	case "localpath":
 		rp.localPath = value
 		ret5 = true

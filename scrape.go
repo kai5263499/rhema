@@ -24,11 +24,12 @@ import (
 var _ domain.Converter = (*Scrape)(nil)
 
 // NewScrape returns a new Scrape instance
-func NewScrape(contentStorage domain.Storage, minTextBlockSize uint32, localPath string) *Scrape {
+func NewScrape(contentStorage domain.Storage, minTextBlockSize uint32, localPath string, titleLengthLimit int) *Scrape {
 	return &Scrape{
 		contentStorage:   contentStorage,
 		minTextBlockSize: minTextBlockSize,
 		localPath:        localPath,
+		titleLengthLimit: titleLengthLimit,
 	}
 }
 
@@ -37,6 +38,7 @@ type Scrape struct {
 	contentStorage   domain.Storage
 	minTextBlockSize uint32
 	localPath        string
+	titleLengthLimit int
 }
 
 func (s *Scrape) extractText(ci pb.Request) (string, *bytes.Buffer, error) {
@@ -91,7 +93,11 @@ func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
 	}
 
 	if len(title) > 3 {
-		ci.Title = title
+		if len(title) > s.titleLengthLimit {
+			ci.Title = title[:s.titleLengthLimit]
+		} else {
+			ci.Title = title
+		}
 	}
 
 	ci.Type = pb.Request_TEXT

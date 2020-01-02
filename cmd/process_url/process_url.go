@@ -30,6 +30,7 @@ type config struct {
 	Atempo           float32 `env:"ATEMPO" envDefault:"2.0"`
 	ChownTo          int     `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel         string  `env:"LOG_LEVEL" envDefault:"info"`
+	TitleLengthLimit int     `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
 }
 
 var (
@@ -52,10 +53,10 @@ func main() {
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
-	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath)
+	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath, cfg.TitleLengthLimit)
 	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)
 	text2mp3 := NewText2Mp3(contentStorage, cfg.TmpPath, cfg.WordsPerMinute, cfg.EspeakVoice)
-	requestProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo)
+	requestProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit)
 
 	for _, arg := range os.Args[1:] {
 		newUUID := uuid.Must(uuid.NewV4())
