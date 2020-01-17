@@ -81,8 +81,19 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 
 	ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 	parsedTitle, err := parseTitleFromUri(ci.Uri)
-	if err != nil && len(parsedTitle) > 4 {
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"err": err,
+			"uri": ci.Uri,
+		}).Warnf("error parsing title from uri")
+	} else if len(parsedTitle) > 4 {
 		ci.Title = parsedTitle
+	} else {
+		logrus.WithFields(logrus.Fields{
+			"err":         err,
+			"uri":         ci.Uri,
+			"parsedTitle": parsedTitle,
+		}).Warnf("parsed title too short")
 	}
 
 	if len(ci.Title) > rp.titleLengthLimit {
