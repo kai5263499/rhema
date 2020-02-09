@@ -218,7 +218,15 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I'll process %d url", SUCCESS_EMOJI, user.Name, len(uris)), ev.Channel))
 
 	for _, parsedUri := range uris {
-		go b.processUri(parsedUri, user, ev.Channel, false)
+		decodedUri, err := url.QueryUnescape(parsedUri)
+		if err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"parsedUri": parsedUri,
+			}).Errorf("error urldecoding uri")
+			continue
+		}
+
+		go b.processUri(decodedUri, user, ev.Channel, false)
 	}
 }
 

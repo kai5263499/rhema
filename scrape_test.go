@@ -68,8 +68,9 @@ var _ = Describe("scrape", func() {
 		}
 
 		scrape := Scrape{
-			localPath:      "/tmp",
-			contentStorage: &fakeContentStore{},
+			localPath:        "/tmp",
+			titleLengthLimit: 120,
+			contentStorage:   &fakeContentStore{},
 		}
 
 		for _, tc := range tests {

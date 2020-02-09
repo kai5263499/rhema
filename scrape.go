@@ -93,7 +93,7 @@ func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
 	}
 
 	if len(title) > 3 {
-		if len(title) > s.titleLengthLimit {
+		if s.titleLengthLimit > 0 && len(title) > s.titleLengthLimit {
 			ci.Title = title[:s.titleLengthLimit]
 		} else {
 			ci.Title = title

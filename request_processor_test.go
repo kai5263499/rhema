@@ -21,6 +21,11 @@ type rpTest struct {
 	wanted  pb.Request
 }
 
+type rpUriTest struct {
+	uri          string
+	expectedType pb.Request_ContentType
+}
+
 var processRPCmdInput func(args []string) (string, int)
 
 func fakeRPExecCommand(command string, args ...string) *exec.Cmd {
@@ -47,6 +52,21 @@ func TestRPExecCommandHelper(t *testing.T) {
 }
 
 var _ = Describe("request_processor", func() {
+
+	var (
+		rp RequestProcessor
+	)
+
+	BeforeEach(func() {
+		rp = RequestProcessor{
+			youtube:      &youtubeConverter{},
+			scrape:       &textConverter{},
+			text2mp3:     &audioConverter{},
+			speedupAudio: &audioConverter{},
+			localPath:    "/tmp",
+		}
+	})
+
 	It("Should perform a basic processing", func() {
 		var err error
 
@@ -55,14 +75,6 @@ var _ = Describe("request_processor", func() {
 		}
 
 		newUUID := uuid.Must(uuid.NewV4())
-
-		rp := RequestProcessor{
-			youtube:      &youtubeConverter{},
-			scrape:       &textConverter{},
-			text2mp3:     &audioConverter{},
-			speedupAudio: &audioConverter{},
-			localPath:    "/tmp",
-		}
 
 		testText := "This should come from a file and contain real messy HTML examples"
 
@@ -82,5 +94,24 @@ var _ = Describe("request_processor", func() {
 		requestResult, err := rp.Process(ci)
 		Expect(err).To(BeNil())
 		Expect(requestResult.Type).To(Equal(pb.Request_AUDIO))
+	})
+
+	It("Should parse the right type from a URI", func() {
+		tests := []rpUriTest{
+			{
+				uri:          "http://something.com/my_podcast.mp3",
+				expectedType: pb.Request_AUDIO,
+			},
+			{
+				uri:          "http://something.com/my_podcast.mp3?this=is&some=parameter&trash=bad",
+				expectedType: pb.Request_AUDIO,
+			},
+		}
+
+		for _, t := range tests {
+			parsedType := rp.parseRequestTypeFromURI(t.uri)
+			Expect(parsedType).To(Equal(t.expectedType))
+		}
+
 	})
 })
