@@ -1,5 +1,7 @@
 # rhema
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/kai5263499/rhema)](https://goreportcard.com/report/github.com/kai5263499/rhema)
+
 rhema is the Greek word for "utterance" or "thing said". This project is all about taking the content of a URI and turning it into compressed audio for faster (for me anyway) consumption.
 
 ## Building
