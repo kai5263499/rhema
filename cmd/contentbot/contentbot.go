@@ -56,7 +56,7 @@ func main() {
 	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)
 	contentProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit)
 
-	bot := NewBot(cfg.SlackToken, contentProcessor, cfg.LocalPath, cfg.ChownTo, cfg.Channels)
+	bot := NewBot(cfg.SlackToken, contentProcessor, cfg.LocalPath, cfg.TmpPath, cfg.ChownTo, cfg.Channels)
 	bot.Start()
 
 	c := make(chan os.Signal, 1)

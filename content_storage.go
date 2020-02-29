@@ -59,7 +59,7 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 
-	logrus.Debugf("storing %d bytes from %s to %s", size, fullFileName, s3path)
+	logrus.Debugf("storing %d bytes from %s to s3://%s/%s", size, fullFileName, cs.s3Bucket, s3path)
 
 	_, err = cs.s3svc.PutObject(&s3.PutObjectInput{
 		Bucket:               aws.String(cs.s3Bucket),
@@ -73,6 +73,7 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 	})
 
 	if err != nil {
+		logrus.WithError(err).Errorf("unable to put object into S3")
 		return ci, err
 	}
 
@@ -83,6 +84,7 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 	urlStr, err := req.Presign(6 * 24 * time.Hour)
 
 	if err != nil {
+		logrus.WithError(err).Errorf("unable to get object presigned uri")
 		return ci, err
 	}
 

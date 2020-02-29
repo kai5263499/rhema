@@ -38,11 +38,15 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 
 	scrapeReq, err := yt.scrape.Convert(ci)
 	if err != nil {
-		return ci, err
-	}
-
-	if len(scrapeReq.Title) > 3 {
-		ci.Title = scrapeReq.Title
+		logrus.WithFields(logrus.Fields{
+			"uri":   ci.Uri,
+			"title": ci.Title,
+			"err":   err,
+		}).Warnf("unable to scrape title")
+	} else {
+		if len(scrapeReq.Title) > 3 {
+			ci.Title = scrapeReq.Title
+		}
 	}
 
 	ci.Type = pb.Request_AUDIO

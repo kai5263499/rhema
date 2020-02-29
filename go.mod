@@ -16,6 +16,7 @@ require (
 	github.com/nlopes/slack v0.6.1-0.20191106133607-d06c2a2b3249
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7
 	google.golang.org/grpc v1.25.1

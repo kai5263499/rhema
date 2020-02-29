@@ -37,7 +37,8 @@ type RequestProcessor struct {
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.Request_ContentType {
 	if strings.Contains(requestUri, "youtu.be") ||
 		strings.Contains(requestUri, "www.youtube.com") ||
-		strings.Contains(requestUri, "facebook.com") {
+		strings.Contains(requestUri, "facebook.com") ||
+		strings.Contains(requestUri, "vimeo.com") {
 		if strings.Contains(requestUri, "playlist") {
 			return pb.Request_YOUTUBE_LIST
 		} else {
@@ -73,54 +74,69 @@ func (rp *RequestProcessor) downloadUri(ci pb.Request) error {
 }
 
 func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
-	logrus.Debugf("processing %#v\n", ci)
-
 	var err error
 	var ci2 pb.Request
 	var ci3 pb.Request
 
-	ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
-	parsedTitle, err := parseTitleFromUri(ci.Uri)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"err": err,
-			"uri": ci.Uri,
-		}).Warnf("error parsing title from uri")
-	} else if len(parsedTitle) > 4 {
-		ci.Title = parsedTitle
-	} else {
-		logrus.WithFields(logrus.Fields{
-			"err":         err,
-			"uri":         ci.Uri,
-			"parsedTitle": parsedTitle,
-		}).Warnf("parsed title too short")
+	if ci.Type == pb.Request_URI {
+		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
+
+		parsedTitle, err := parseTitleFromUri(ci.Uri)
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				"err": err,
+				"uri": ci.Uri,
+			}).Warnf("error parsing title from uri")
+		} else if len(parsedTitle) > 4 {
+			ci.Title = parsedTitle
+		} else {
+			logrus.WithFields(logrus.Fields{
+				"err":         err,
+				"uri":         ci.Uri,
+				"parsedTitle": parsedTitle,
+			}).Warnf("parsed title too short")
+		}
+
+		if len(ci.Title) > rp.titleLengthLimit {
+			ci.Title = ci.Title[0:rp.titleLengthLimit]
+		}
 	}
 
-	if len(ci.Title) > rp.titleLengthLimit {
-		ci.Title = ci.Title[0:rp.titleLengthLimit]
-	}
+	logrus.WithFields(logrus.Fields{
+		"uri":   ci.Uri,
+		"title": ci.Title,
+		"type":  ci.Type,
+	}).Infof("processing")
 
 	switch ci.Type {
 	case pb.Request_YOUTUBE:
 		ci2, err = rp.youtube.Convert(ci)
 		if err != nil {
+			logrus.WithError(err).Errorf("error with youtube")
 			return ci, err
 		}
 
 		ci3, err = rp.speedupAudio.Convert(ci2)
 		if err != nil {
+			logrus.WithError(err).Errorf("error with youtube audio")
 			return ci2, err
 		}
 
 		return ci3, nil
 	case pb.Request_TEXT:
-		ci2, err = rp.scrape.Convert(ci)
-		if err != nil {
-			return ci, err
+		if len(ci.Text) < 1 {
+			ci2, err = rp.scrape.Convert(ci)
+			if err != nil {
+				logrus.WithError(err).Errorf("error with text")
+				return ci, err
+			}
+		} else {
+			ci2 = ci
 		}
 
 		ci3, err = rp.text2mp3.Convert(ci2)
 		if err != nil {
+			logrus.WithError(err).Errorf("error with text to audio conversion")
 			return ci2, err
 		}
 
@@ -128,11 +144,13 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	case pb.Request_AUDIO:
 		err = rp.downloadUri(ci)
 		if err != nil {
+			logrus.WithError(err).Errorf("error downloading audio uri")
 			return ci, err
 		}
 
 		ci2, err = rp.speedupAudio.Convert(ci)
 		if err != nil {
+			logrus.WithError(err).Errorf("error speeding up audio")
 			return ci, err
 		}
 
@@ -140,11 +158,13 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	case pb.Request_VIDEO:
 		err = rp.downloadUri(ci)
 		if err != nil {
+			logrus.WithError(err).Errorf("error downloading video uri")
 			return ci, err
 		}
 
 		ci2, err = rp.speedupAudio.Convert(ci)
 		if err != nil {
+			logrus.WithError(err).Errorf("error speeding up video")
 			return ci, err
 		}
 

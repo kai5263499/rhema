@@ -17,6 +17,7 @@ import (
 	. "github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/nlopes/slack"
+	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -30,14 +31,18 @@ type botCommand struct {
 	pattern glossa.Pattern
 }
 
-func NewBot(slackToken string, requestProcessor Processor, localPath string, chownTo int, channels []string) *Bot {
+func NewBot(slackToken string, requestProcessor Processor, localPath string, tmpPath string, chownTo int, channels []string) *Bot {
+	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
+
 	bot := &Bot{
 		slackToken:       slackToken,
 		requestProcessor: requestProcessor,
 		localPath:        localPath,
+		tmpPath:          tmpPath,
 		chownTo:          chownTo,
 		channels:         channels,
 		patterns:         make([]botCommand, 0),
+		cache:            cache.New(5*time.Minute, 10*time.Minute),
 	}
 
 	commands, _ := bot.initPatterns()
@@ -56,10 +61,12 @@ type Bot struct {
 	slackToken       string
 	requestProcessor Processor
 	localPath        string
+	tmpPath          string
 	chownTo          int
 	channels         []string
 	slackChannels    []*slack.Channel
 	patterns         []botCommand
+	cache            *cache.Cache
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
@@ -80,9 +87,8 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 	resultingItem, err := b.requestProcessor.Process(contentRequest)
 	if err != nil {
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to process `%s` err=%+#v", FAILURE_EMOJI, user.Name, uri, err), channel))
-		logrus.WithFields(logrus.Fields{
+		logrus.WithError(err).WithFields(logrus.Fields{
 			"uri": uri,
-			"err": err,
 		}).Errorf("processing item")
 		return
 	}
@@ -90,9 +96,8 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 	urlFilename, err := GetFilePath(resultingItem)
 	if err != nil {
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to get file path `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.Uri, err), channel))
-		logrus.WithFields(logrus.Fields{
+		logrus.WithError(err).WithFields(logrus.Fields{
 			"uri": uri,
-			"err": err,
 		}).Errorf("get file path")
 		return
 	}
@@ -230,12 +235,120 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 	}
 }
 
+func (b *Bot) processUploadRequest(ci pb.Request, user *slack.User, channel string) {
+	fileName, err := GetFilePath(ci)
+	if err != nil {
+		logrus.WithError(err).Errorf("unable to get local file path")
+		return
+	}
+
+	fullFilename := filepath.Join(b.tmpPath, fileName)
+
+	if err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm); err != nil {
+		logrus.WithError(err).Errorf("unable to create %s", path.Dir(fullFilename))
+		return
+	}
+
+	err = ioutil.WriteFile(fullFilename, []byte(ci.Text), 0600)
+	if err != nil {
+		logrus.WithError(err).Errorf("unable to write local file %s", fullFilename)
+		return
+	}
+
+	logrus.Debugf("treating upload as text with %d bytes saved to %s", len(ci.Text), fullFilename)
+
+	resultingItem, err := b.requestProcessor.Process(ci)
+
+	urlFilename, err := GetFilePath(resultingItem)
+	if err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to get file path `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.Uri, err), channel))
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"title": resultingItem.Title,
+		}).Errorf("get file path")
+		return
+	}
+
+	baseUrlFilename := path.Base(urlFilename)
+
+	urlFullFilename := filepath.Join(b.localPath, baseUrlFilename)
+
+	err = DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
+	if err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to download `%s` -> `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.DownloadURI, path.Base(urlFullFilename), err), channel))
+		logrus.WithFields(logrus.Fields{
+			"downloadURI":     resultingItem.DownloadURI,
+			"urlFullFilename": urlFullFilename,
+			"err":             err,
+		}).Errorf("download uri to file")
+		return
+	}
+
+	file, err := os.Open(urlFullFilename)
+	if err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to open `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
+		logrus.WithFields(logrus.Fields{
+			"urlFullFilename": urlFullFilename,
+			"err":             err,
+		}).Errorf("open url file")
+		return
+	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to stat `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
+		logrus.WithFields(logrus.Fields{
+			"urlFullFilename": urlFullFilename,
+			"err":             err,
+		}).Errorf("file info")
+		return
+	}
+
+	var size int64 = fileInfo.Size()
+	file.Close()
+
+	err = os.Chown(urlFullFilename, b.chownTo, b.chownTo)
+	if err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to chown `%s` to `%d` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), b.chownTo, err), channel))
+		logrus.WithFields(logrus.Fields{
+			"urlFullFilename": urlFullFilename,
+			"chownTo":         b.chownTo,
+			"err":             err,
+		}).Errorf("chown")
+		return
+	}
+
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I've processed `%s` which is `%d` bytes and downloadable from %s", SUCCESS_EMOJI, user.Name, path.Base(urlFullFilename), size, resultingItem.DownloadURI), channel))
+}
+
 func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
-	logrus.Debugf("file share event %+v ev.File.URLPrivateDownload=%s\n", ev, ev.File.URLPrivate)
+	var err error
+	var channel string
+
+	_, found := b.cache.Get(ev.File.ID)
+	if found {
+		logrus.Debugf("%s found in cache, skipping", ev.FileID)
+		return
+	}
+
+	b.cache.Set(ev.File.ID, true, cache.DefaultExpiration)
 
 	file, _, _, err := b.api.GetFileInfo(ev.File.ID, 0, 0)
 	if err != nil {
-		fmt.Printf("error getting shared public url %+v\n", err)
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"fileId": ev.File.ID,
+		}).Errorf("error getting file info")
+		return
+	}
+
+	if len(b.channels) > 0 {
+		channel = b.channels[0]
+	}
+
+	user, err := b.api.GetUserInfo(file.User)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"fileId": ev.File.ID,
+		}).Errorf("error getting file info")
 		return
 	}
 
@@ -244,7 +357,9 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	req.Header.Set("Authorization", "Bearer "+b.slackToken)
 	resp, err := client.Do(req)
 	if err != nil {
-		logrus.Errorf("ERROR: Failed to scrape %s", file.URLPrivate)
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"fileURLPrivate": file.URLPrivate,
+		}).Errorf("error downloading shared file")
 		return
 	}
 
@@ -254,45 +369,37 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	if file.Title == "urls" {
 		urls := URL_REGEXP.FindAllString(bodyStr, -1)
 
-		logrus.Debugf("parsed %d urls %+v", len(urls), urls)
+		logrus.Debugf("parsed %d urls", len(urls))
 
 		for _, parsedUrl := range urls {
-			newUUID := uuid.Must(uuid.NewV4())
 			unescapedUrl, _ := url.QueryUnescape(parsedUrl)
-			contentRequest := pb.Request{
-				Uri:         unescapedUrl,
-				Type:        pb.Request_URI,
-				Title:       newUUID.String(),
-				SubmittedBy: ev.File.User,
-				SubmittedAt: uint64(time.Now().UTC().Unix()),
-				RequestHash: newUUID.String(),
-			}
-
-			b.requestProcessor.Process(contentRequest)
+			go b.processUri(unescapedUrl, user, channel, false)
 		}
 	} else {
 
-		logrus.Debugf("treating upload as text")
-
 		newUUID := uuid.Must(uuid.NewV4())
 
-		contentRequest := pb.Request{
+		ci := pb.Request{
 			Uri:         file.URLPrivate,
 			Title:       file.Title,
 			Type:        pb.Request_TEXT,
 			Text:        bodyStr,
 			SubmittedBy: ev.File.User,
+			Created:     uint64(time.Now().UTC().Unix()),
 			SubmittedAt: uint64(time.Now().UTC().Unix()),
 			RequestHash: newUUID.String(),
+			Length:      uint64(len(bodyStr)),
 		}
 
-		b.requestProcessor.Process(contentRequest)
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I'll process the text snippet upload with %d bytes", SUCCESS_EMOJI, user.Name, len(bodyStr)), channel))
+
+		go b.processUploadRequest(ci, user, channel)
 	}
 }
 
 func (b *Bot) slackReadLoop() {
 	logrus.Debugf("start slack read loop")
-Loop:
+
 	for {
 		select {
 		case msg := <-b.rtm.IncomingEvents:
@@ -311,14 +418,12 @@ Loop:
 				logrus.Errorf("RTMError: %s", ev.Error())
 			case *slack.InvalidAuthEvent:
 				logrus.Errorf("Invalid credentials!")
-				break Loop
+				return
 			default:
 				//Take no action
 			}
 		}
 	}
-
-	logrus.Debugf("slack read loop finished")
 }
 
 func (b *Bot) joinChannels() {
@@ -411,8 +516,4 @@ func (b *Bot) initPatterns() ([]botCommand, error) {
 	patterns = append(patterns, bc2)
 
 	return patterns, nil
-}
-
-func init() {
-	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
 }
