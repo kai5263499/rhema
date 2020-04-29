@@ -28,10 +28,14 @@ exec-interactive:
 	-e SLACK_TOKEN="${SLACK_TOKEN}" \
 	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-e CHANNELS="${CHANNELS}" \
+	-e GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp/service-account-file.json" \
+	-e ELASTICSEARCH_URL=${ELASTICSEARCH_URL} \
 	-v ${LOCAL_DEV_PATH}:/go/src/github.com/kai5263499 \
 	-v ${LOCAL_CONTENT_PATH}:/data \
+	-v ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json \
 	--tmpfs /tmp:exec \
-	-w /go/src/github.com/kai5263499/rhema/cmd/contentbot \
+	-p 8090:8080 \
+	-w /go/src/github.com/kai5263499/rhema/cmd/apiserver \
 	kai5263499/rhema-builder bash
 
 exec-contentbot:
@@ -45,6 +49,14 @@ exec-contentbot:
 	-v ${LOCAL_CONTENT_PATH}:/data \
 	-v ${LOCAL_TMP_PATH}:/tmp \
 	kai5263499/rhema-bot
+
+elasticsearch:
+	docker run -d \
+	-p 9200:9200 \
+	-p 9300:9300 \
+	--name elasticsearch \
+	-e "discovery.type=single-node" \
+	docker.elastic.co/elasticsearch/elasticsearch:7.6.1
 
 test:
 	go test

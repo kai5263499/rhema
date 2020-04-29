@@ -26,7 +26,8 @@ RUN echo "Install golang" && \
 	rm -rf go1.13.3.linux-amd64.tar.gz
 
 RUN echo "Caching golang modules" && \
-	go mod download
+	go mod download && \
+	go get github.com/swaggo/swag/cmd/swag
 
 RUN	echo "Install protoc tools" && \
 	go get -u github.com/golang/protobuf/protoc-gen-go && \

@@ -3,3 +3,5 @@ vendor
 cmd/scrape/scrape
 cmd/process_url/process_url
 cmd/contentbot/contentbot
+cmd/apiserver/apiserver
+cmd/apiserver/docs
