@@ -1,0 +1,96 @@
+basePath: /
+definitions:
+  generated.Request:
+    properties:
+      Created:
+        type: integer
+      DownloadURI:
+        type: string
+      Length:
+        type: integer
+      NumberOfConversions:
+        type: integer
+      RequestHash:
+        type: string
+      Size:
+        type: integer
+      SubmittedAt:
+        type: integer
+      SubmittedBy:
+        type: string
+      Text:
+        type: string
+      Title:
+        type: string
+      Type:
+        type: integer
+      Uri:
+        type: string
+    type: object
+host: localhost
+info:
+  contact:
+    email: wes@manwe.io
+    name: Wes Widner
+  description: This is a REST interface for the Rhema content to audio system
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Rhema API
+  version: "1.0"
+paths:
+  /request:
+    post:
+      consumes:
+      - application/json
+      description: Create a new content to mp3 conversion request with the input paylod
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/generated.Request'
+      summary: Create a new content processing request
+      tags:
+      - requests
+  /requests:
+    get:
+      consumes:
+      - application/json
+      description: Get details of all requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/generated.Request'
+            type: array
+      summary: Get details of all requests
+      tags:
+      - requests
+  /requests/{requestID}:
+    get:
+      consumes:
+      - application/json
+      description: Get details of a content request for a given requestID
+      parameters:
+      - description: ID of the order
+        in: path
+        name: orderId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/generated.Request'
+      summary: Get details for a given requestID
+      tags:
+      - requests
+swagger: "2.0"

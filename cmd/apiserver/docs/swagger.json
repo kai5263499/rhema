@@ -1,0 +1,145 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is a REST interface for the Rhema content to audio system",
+        "title": "Rhema API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "Wes Widner",
+            "email": "wes@manwe.io"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost",
+    "basePath": "/",
+    "paths": {
+        "/request": {
+            "post": {
+                "description": "Create a new content to mp3 conversion request with the input paylod",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "summary": "Create a new content processing request",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/generated.Request"
+                        }
+                    }
+                }
+            }
+        },
+        "/requests": {
+            "get": {
+                "description": "Get details of all requests",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "summary": "Get details of all requests",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/generated.Request"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/requests/{requestID}": {
+            "get": {
+                "description": "Get details of a content request for a given requestID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "requests"
+                ],
+                "summary": "Get details for a given requestID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID of the order",
+                        "name": "orderId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/generated.Request"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "generated.Request": {
+            "type": "object",
+            "properties": {
+                "Created": {
+                    "type": "integer"
+                },
+                "DownloadURI": {
+                    "type": "string"
+                },
+                "Length": {
+                    "type": "integer"
+                },
+                "NumberOfConversions": {
+                    "type": "integer"
+                },
+                "RequestHash": {
+                    "type": "string"
+                },
+                "Size": {
+                    "type": "integer"
+                },
+                "SubmittedAt": {
+                    "type": "integer"
+                },
+                "SubmittedBy": {
+                    "type": "string"
+                },
+                "Text": {
+                    "type": "string"
+                },
+                "Title": {
+                    "type": "string"
+                },
+                "Type": {
+                    "type": "integer"
+                },
+                "Uri": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

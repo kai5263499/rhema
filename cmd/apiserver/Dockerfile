@@ -30,4 +30,18 @@ COPY --from=builder /usr/local/bin/youtube-dl /usr/local/bin/youtube-dl
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/apiserver/deps /
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/apiserver/apiserver /apiserver
 
+ENV MIN_TEXT_BLOCK_SIZE="100"
+ENV BUCKET=""
+ENV LOCAL_PATH="/data"
+ENV TMP_PATH="/tmp"
+ENV WORDS_PER_MINUTE="350"
+ENV ESPEAK_VOICE="f5"
+ENV ATEMPO="2.0"
+ENV CHOWN_TO="1000"
+ENV LOG_LEVEL="info"
+ENV SLACK_TOKEN=""
+ENV ELASTICSEARCH_URL=""
+ENV TITLE_LENGTH_LIMIT="40"
+ENV GOOGLE_APPLICATION_CREDENTIALS=""
+
 ENTRYPOINT [ "/apiserver" ]
