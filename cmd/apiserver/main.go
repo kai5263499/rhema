@@ -4,16 +4,12 @@ import (
 	"context"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env"
 	"github.com/gofrs/uuid"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 
 	"encoding/json"
 	"net/http"
@@ -35,18 +31,18 @@ import (
 )
 
 type config struct {
-	LogLevel             string  `env:"LOG_LEVEL" envDefault:"debug"`
-	AwsDefaultRegion     string  `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
-	MinTextBlockSize     int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	S3Bucket             string  `env:"S3_BUCKET"`
-	TmpPath              string  `env:"TMP_PATH" envDefault:"/tmp"`
-	WordsPerMinute       int     `env:"WORDS_PER_MINUTE" envDefault:"350"`
-	EspeakVoice          string  `env:"ESPEAK_VOICE" envDefault:"f5"`
-	LocalPath            string  `env:"LOCAL_PATH" envDefault:"/data"`
-	Atempo               float32 `env:"ATEMPO" envDefault:"2.0"`
-	ChownTo              int     `env:"CHOWN_TO" envDefault:"1000"`
-	TitleLengthLimit     int     `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
-	ElasticSearchAddress string  `env:"ELASTICSEARCH_URL" envDefault:"http://localhost:9200"`
+	LogLevel                     string  `env:"LOG_LEVEL" envDefault:"debug"`
+	MinTextBlockSize             int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
+	Bucket                       string  `env:"BUCKET"`
+	TmpPath                      string  `env:"TMP_PATH" envDefault:"/tmp"`
+	WordsPerMinute               int     `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	EspeakVoice                  string  `env:"ESPEAK_VOICE" envDefault:"f5"`
+	LocalPath                    string  `env:"LOCAL_PATH" envDefault:"/data"`
+	Atempo                       float32 `env:"ATEMPO" envDefault:"2.0"`
+	ChownTo                      int     `env:"CHOWN_TO" envDefault:"1000"`
+	TitleLengthLimit             int     `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
+	ElasticSearchAddress         string  `env:"ELASTICSEARCH_URL" envDefault:"http://localhost:9200"`
+	GoogleApplicationCredentials string  `env:"GOOGLE_APPLICATION_CREDENTIALS"`
 }
 
 const (
@@ -58,7 +54,7 @@ var (
 	contentProcessor *RequestProcessor
 	esClient         *elastic.Client
 	fbApp            *firebase.App
-	fbAuth 			 *auth.Client
+	fbAuth           *auth.Client
 )
 
 func checkError(msg string, err error) {
@@ -97,18 +93,21 @@ func main() {
 
 	// Access auth service from the default app
 	if client, err := fbApp.Auth(context.Background()); err != nil {
-			logrus.WithError(err).Fatalf("new firebase auth")
+		logrus.WithError(err).Fatalf("new firebase auth")
 	} else {
 		fbAuth = client
 	}
-
-	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsDefaultRegion).WithCredentials(credentials.NewEnvCredentials())))
 
 	var err1 error
 	esClient, err1 = elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
 	checkError("new default elasticsearch client", err1)
 
-	contentStorage := NewContentStorage(s3svc, cfg.TmpPath, cfg.S3Bucket, esClient)
+	ctx := context.Background()
+	gcpClient, err := storage.NewClient(ctx)
+	checkError("new default gcp storage client", err)
+
+	contentStorage, err := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
+	checkError("NewContentStorage: %v", err)
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 

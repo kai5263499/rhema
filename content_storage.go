@@ -1,21 +1,21 @@
 package rhema
 
 import (
-	"bytes"
 	"context"
-	"net/http"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
+	"cloud.google.com/go/storage"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/olivere/elastic"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2/google"
 
 	"github.com/kai5263499/rhema/interfaces"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 const (
@@ -63,29 +63,29 @@ const (
 )
 
 // NewContentStorage returns an instance of ContentStorage
-func NewContentStorage(s3svc interfaces.S3, localPath string, s3Bucket string, esClient interfaces.ElasticSearch) *ContentStorage {
+func NewContentStorage(localPath string, bucket string, gcpClient interfaces.GCPStorage, esClient interfaces.ElasticSearch) (*ContentStorage, error) {
 
 	cs := &ContentStorage{
-		s3svc:     s3svc,
-		localPath: localPath,
-		s3Bucket:  s3Bucket,
-		esClient:  esClient,
+		localPath:     localPath,
+		bucket:        bucket,
+		storageClient: gcpClient,
+		esClient:      esClient,
 	}
 
 	esSetup(esClient)
 
-	return cs
+	return cs, nil
 }
 
 // ContentStorage persists content artifacts to S3
 type ContentStorage struct {
-	s3svc     interfaces.S3
-	localPath string
-	s3Bucket  string
-	esClient  interfaces.ElasticSearch
+	localPath     string
+	bucket        string
+	storageClient interfaces.GCPStorage
+	esClient      interfaces.ElasticSearch
 }
 
-func esSetup(esClient interfaces.ElasticSearch) {
+func esSetup(esClient interfaces.ElasticSearch) error {
 	ctx := context.Background()
 
 	exists, err := esClient.IndexExists(esIndex).Do(ctx)
@@ -103,34 +103,26 @@ func esSetup(esClient interfaces.ElasticSearch) {
 		}
 		logrus.Debugf("index created")
 	}
+
+	return nil
 }
 
 // Store persists a content item in S3
 func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
-	var err error
-
-	s3path, err := getS3Path(ci)
+	itemPath, err := getPath(ci)
 	if err != nil {
 		return ci, err
 	}
 
-	err = cs.s3store(&ci, s3path)
-	if err != nil {
+	if err := cs.doStore(&ci, itemPath); err != nil {
 		return ci, err
 	}
 
-	req, _ := cs.s3svc.GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String(cs.s3Bucket),
-		Key:    aws.String(s3path),
-	})
-
-	err = cs.presignS3(&ci, req)
-	if err != nil {
+	if err := cs.presign(&ci); err != nil {
 		return ci, err
 	}
 
-	err = cs.esStore(&ci)
-	if err != nil {
+	if err := cs.esStore(&ci); err != nil {
 		logrus.WithError(err).Errorf("esStore failed")
 		return ci, err
 	}
@@ -138,8 +130,34 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 	return ci, nil
 }
 
-func (cs *ContentStorage) presignS3(ci *pb.Request, req interfaces.Request) error {
-	urlStr, err := req.Presign(6 * 24 * time.Hour)
+func (cs *ContentStorage) presign(ci *pb.Request) error {
+	itemPath, err := getPath(*ci)
+	if err != nil {
+		return err
+	}
+
+	jsonKey, err := ioutil.ReadFile(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	if err != nil {
+		return fmt.Errorf("cannot read the JSON key file, err: %v", err)
+	}
+
+	conf, err := google.JWTConfigFromJSON(jsonKey)
+	if err != nil {
+		return fmt.Errorf("google.JWTConfigFromJSON: %v", err)
+	}
+
+	opts := &storage.SignedURLOptions{
+		Scheme:         storage.SigningSchemeV4,
+		Method:         "GET",
+		GoogleAccessID: conf.Email,
+		PrivateKey:     conf.PrivateKey,
+		Expires:        time.Now().Add(24 * time.Hour),
+	}
+
+	urlStr, err := storage.SignedURL(cs.bucket, itemPath, opts)
+	if err != nil {
+		return fmt.Errorf("Unable to generate a signed URL: %v", err)
+	}
 
 	if err != nil {
 		logrus.WithError(err).Errorf("unable to get object presigned uri")
@@ -153,7 +171,7 @@ func (cs *ContentStorage) presignS3(ci *pb.Request, req interfaces.Request) erro
 	return nil
 }
 
-func (cs *ContentStorage) s3store(ci *pb.Request, s3path string) error {
+func (cs *ContentStorage) doStore(ci *pb.Request, path string) error {
 	fileName, err := GetFilePath(*ci)
 	if err != nil {
 		return nil
@@ -162,33 +180,32 @@ func (cs *ContentStorage) s3store(ci *pb.Request, s3path string) error {
 	fullFileName := filepath.Join(cs.localPath, fileName)
 
 	// Open the file for use
-	file, err := os.Open(fullFileName)
+	f, err := os.Open(fullFileName)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer f.Close()
 
 	// Get file size and read the file content into a buffer
-	fileInfo, _ := file.Stat()
+	fileInfo, _ := f.Stat()
 	var size int64 = fileInfo.Size()
-	buffer := make([]byte, size)
-	_, err = file.Read(buffer)
-	if err != nil {
+
+	logrus.Debugf("storing %d bytes from %s to %s/%s", size, fullFileName, cs.bucket, path)
+
+	ctx := context.Background()
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+	defer cancel()
+
+	wc := cs.storageClient.Bucket(cs.bucket).Object(path).NewWriter(ctx)
+	if _, err = io.Copy(wc, f); err != nil {
+		logrus.WithError(err).Errorf("unable to copy file to bucket")
 		return err
 	}
-
-	logrus.Debugf("storing %d bytes from %s to s3://%s/%s", size, fullFileName, cs.s3Bucket, s3path)
-
-	_, err = cs.s3svc.PutObject(&s3.PutObjectInput{
-		Bucket:               aws.String(cs.s3Bucket),
-		Key:                  aws.String(s3path),
-		ACL:                  aws.String("private"),
-		Body:                 bytes.NewReader(buffer),
-		ContentLength:        aws.Int64(size),
-		ContentType:          aws.String(http.DetectContentType(buffer)),
-		ContentDisposition:   aws.String("attachment"),
-		ServerSideEncryption: aws.String("AES256"),
-	})
+	if err := wc.Close(); err != nil {
+		logrus.WithError(err).Errorf("unable to close bucket writer")
+		return err
+	}
 
 	if err != nil {
 		logrus.WithError(err).Errorf("unable to put object into S3")
@@ -249,8 +266,8 @@ func (cs *ContentStorage) esStore(ci *pb.Request) error {
 
 func (cs *ContentStorage) SetConfig(key string, value string) bool {
 	switch key {
-	case "s3bucket":
-		cs.s3Bucket = value
+	case "bucket":
+		cs.bucket = value
 		return true
 	case "localpath":
 		cs.localPath = value
@@ -262,8 +279,8 @@ func (cs *ContentStorage) SetConfig(key string, value string) bool {
 
 func (cs *ContentStorage) GetConfig(key string) (bool, string) {
 	switch key {
-	case "s3bucket":
-		return true, cs.s3Bucket
+	case "bucket":
+		return true, cs.bucket
 	case "localpath":
 		return true, cs.localPath
 	default:

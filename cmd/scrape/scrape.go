@@ -20,6 +20,7 @@ type config struct {
 	MinTextBlockSize int    `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
 	LocalPath        string `env:"LOCAL_PATH" envDefault:"/tmp"`
 	LogLevel         string `env:"LOG_LEVEL" envDefault:"info"`
+	TitleLengthLimit int    `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
 }
 
 var (
@@ -29,6 +30,10 @@ var (
 type placeholderContentStore struct{}
 
 func (fs *placeholderContentStore) Store(ci pb.Request) (pb.Request, error) { return ci, nil }
+
+func (fs *placeholderContentStore) GetConfig(key string) (bool, string) { return false, "" }
+
+func (fs *placeholderContentStore) SetConfig(key string, value string) bool { return false }
 
 func main() {
 	var err error
@@ -44,7 +49,7 @@ func main() {
 	CheckError(err)
 	logrus.SetLevel(level)
 
-	scrape := NewScrape(&placeholderContentStore{}, uint32(cfg.MinTextBlockSize), cfg.LocalPath)
+	scrape := NewScrape(&placeholderContentStore{}, uint32(cfg.MinTextBlockSize), cfg.LocalPath, cfg.TitleLengthLimit)
 
 	for _, arg := range os.Args[1:] {
 		newUUID := uuid.Must(uuid.NewV4())

@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"time"
 
 	pb "github.com/kai5263499/rhema/generated"
 
@@ -12,43 +11,15 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3iface"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-var lastPutInput *s3.PutObjectInput
-
-type mockS3Client struct {
-	s3iface.S3API
-}
-
-func (mc *mockS3Client) PutObject(p *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
-	lastPutInput = p
-	return nil, nil
-}
-
-func (mc *mockS3Client) GetObjectRequest(*s3.GetObjectInput) (*request.Request, *s3.GetObjectOutput) {
-	req := &request.Request{}
-	return req, nil
-}
-
-type presignerMock struct{}
-
-func (p *presignerMock) Presign(d time.Duration) (string, error) {
-	return "yay", nil
-}
 
 var _ = Describe("content_storage", func() {
 	PIt("Should store the text file in S3", func() {
 		var err error
 
-		mockClient := mockS3Client{}
-
-		cs := NewContentStorage(&mockClient, "/tmp", "my-bucket")
+		cs := NewContentStorage("/tmp", "my-bucket")
 
 		requestContent := "this is the scraped text data from a url request"
 
@@ -76,11 +47,8 @@ var _ = Describe("content_storage", func() {
 		_, err = cs.Store(ci)
 		Expect(err).To(BeNil())
 
-		s3Key, err := getS3Path(ci)
+		_, err = getPath(ci)
 		Expect(err).To(BeNil())
-
-		Expect(lastPutInput).To(Not(BeNil()))
-		Expect(*lastPutInput.Key).To(Equal(s3Key))
 
 		err = os.Remove(txtFilename)
 		Expect(err).To(BeNil())

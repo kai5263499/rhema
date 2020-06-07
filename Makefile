@@ -21,10 +21,7 @@ go-protos:
 # Run an interactive shell for development and testing
 exec-interactive:
 	docker run -it --rm \
-	-e S3_BUCKET="${S3_BUCKET}" \
-	-e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
-	-e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-	-e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+	-e BUCKET="${BUCKET}" \
 	-e SLACK_TOKEN="${SLACK_TOKEN}" \
 	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-e CHANNELS="${CHANNELS}" \
@@ -40,10 +37,7 @@ exec-interactive:
 
 exec-contentbot:
 	docker run -it --rm \
-	-e S3_BUCKET="${S3_BUCKET}" \
-	-e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
-	-e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-	-e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+	-e BUCKET="${BUCKET}" \
 	-e SLACK_TOKEN="${SLACK_TOKEN}" \
 	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-v ${LOCAL_CONTENT_PATH}:/data \

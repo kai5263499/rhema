@@ -68,7 +68,7 @@ func hasContent(title string) bool {
 	return len(cleanTitle(title)) > 0
 }
 
-func getS3Path(req pb.Request) (string, error) {
+func getPath(req pb.Request) (string, error) {
 	var err error
 
 	createdTime := time.Unix(int64(req.Created), 0)

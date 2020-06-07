@@ -3,7 +3,6 @@ FROM kai5263499/rhema-builder as builder
 COPY / /go/src/github.com/kai5263499/rhema
 
 RUN cd /go/src/github.com/kai5263499/rhema/cmd/apiserver && \
-    swag init && \
     go build && \
     ldd apiserver | tr -s '[:blank:]' '\n' | grep '^/' | \
     xargs -I % sh -c 'mkdir -p $(dirname deps%); cp % deps%;'

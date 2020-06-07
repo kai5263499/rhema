@@ -1,14 +1,13 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env"
+	"github.com/olivere/elastic/v7"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
@@ -16,19 +15,20 @@ import (
 )
 
 type config struct {
-	SlackToken       string   `env:"SLACK_TOKEN"`
-	AwsDefaultRegion string   `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
-	MinTextBlockSize int      `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	S3Bucket         string   `env:"S3_BUCKET"`
-	TmpPath          string   `env:"TMP_PATH" envDefault:"/tmp"`
-	WordsPerMinute   int      `env:"WORDS_PER_MINUTE" envDefault:"350"`
-	EspeakVoice      string   `env:"ESPEAK_VOICE" envDefault:"f5"`
-	LocalPath        string   `env:"LOCAL_PATH" envDefault:"/data"`
-	Atempo           float32  `env:"ATEMPO" envDefault:"2.0"`
-	ChownTo          int      `env:"CHOWN_TO" envDefault:"1000"`
-	LogLevel         string   `env:"LOG_LEVEL" envDefault:"info"`
-	Channels         []string `env:"CHANNELS" envDefault:"content"`
-	TitleLengthLimit int      `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
+	SlackToken                   string   `env:"SLACK_TOKEN"`
+	MinTextBlockSize             int      `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
+	Bucket                       string   `env:"BUCKET"`
+	TmpPath                      string   `env:"TMP_PATH" envDefault:"/tmp"`
+	WordsPerMinute               int      `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	EspeakVoice                  string   `env:"ESPEAK_VOICE" envDefault:"f5"`
+	LocalPath                    string   `env:"LOCAL_PATH" envDefault:"/data"`
+	Atempo                       float32  `env:"ATEMPO" envDefault:"2.0"`
+	ChownTo                      int      `env:"CHOWN_TO" envDefault:"1000"`
+	LogLevel                     string   `env:"LOG_LEVEL" envDefault:"info"`
+	Channels                     []string `env:"CHANNELS" envDefault:"content"`
+	TitleLengthLimit             int      `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
+	ElasticSearchAddress         string   `env:"ELASTICSEARCH_URL" envDefault:"http://localhost:9200"`
+	GoogleApplicationCredentials string   `env:"GOOGLE_APPLICATION_CREDENTIALS"`
 }
 
 var (
@@ -45,9 +45,14 @@ func main() {
 	CheckError(err)
 	logrus.SetLevel(level)
 
-	s3svc := s3.New(session.New(aws.NewConfig().WithRegion(cfg.AwsDefaultRegion).WithCredentials(credentials.NewEnvCredentials())))
+	esClient, err := elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
+	CheckError(err)
 
-	contentStorage := NewContentStorage(s3svc, cfg.TmpPath, cfg.S3Bucket)
+	ctx := context.Background()
+	gcpClient, err := storage.NewClient(ctx)
+	CheckError(err)
+
+	contentStorage, err := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
