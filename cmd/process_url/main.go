@@ -14,7 +14,6 @@ import (
 	"github.com/caarlos0/env"
 	"github.com/gofrs/uuid"
 	. "github.com/kai5263499/rhema"
-	. "github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/sirupsen/logrus"
 )
@@ -39,23 +38,32 @@ var (
 )
 
 func main() {
-	var err error
 	cfg = config{}
-	err = env.Parse(&cfg)
-	CheckError(err)
+	if err := env.Parse(&cfg); err != nil {
+		logrus.WithError(err).Fatal("parse config")
+	}
 
-	level, err := logrus.ParseLevel(cfg.LogLevel)
-	CheckError(err)
-	logrus.SetLevel(level)
+	if level, err := logrus.ParseLevel(cfg.LogLevel); err != nil {
+		logrus.WithError(err).Fatal("parse log level")
+	} else {
+		logrus.SetLevel(level)
+	}
 
-	esClient, err := elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
-	CheckError(err)
+	esClient, newESClientErr := elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
+	if newESClientErr != nil {
+		logrus.WithError(newESClientErr).Fatal("new elasticsearch client")
+	}
 
 	ctx := context.Background()
-	gcpClient, err := storage.NewClient(ctx)
-	CheckError(err)
+	gcpClient, newGCPClientErr := storage.NewClient(ctx)
+	if newGCPClientErr != nil {
+		logrus.WithError(newGCPClientErr).Fatal("new gcp storage client")
+	}
 
-	contentStorage, err := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
+	contentStorage, newContentStorageErr := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
+	if newContentStorageErr != nil {
+		logrus.WithError(newContentStorageErr).Fatal("new content storage")
+	}
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 
@@ -75,29 +83,47 @@ func main() {
 			RequestHash: newUUID.String(),
 		}
 
-		resultingItem, err := requestProcessor.Process(req)
-		CheckError(err)
+		resultingItem, processRequestErr := requestProcessor.Process(req)
+		if processRequestErr != nil {
+			logrus.WithError(processRequestErr).Error("process request error")
+			continue
+		}
 
-		urlFilename, err := GetFilePath(resultingItem)
-		CheckError(err)
+		urlFilename, getFilePathErr := GetFilePath(resultingItem)
+		if getFilePathErr != nil {
+			logrus.WithError(processRequestErr).Error("get file path")
+			continue
+		}
 
 		baseUrlFilename := path.Base(urlFilename)
 
 		urlFullFilename := filepath.Join(cfg.LocalPath, baseUrlFilename)
 
-		err = DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
-		CheckError(err)
+		if err := DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename); err != nil {
+			logrus.WithError(err).Error("process request error")
+			continue
+		}
 
 		// Get file info
-		file, err := os.Open(urlFullFilename)
-		CheckError(err)
-		fileInfo, err := file.Stat()
-		CheckError(err)
+		file, fileOpenErr := os.Open(urlFullFilename)
+		if fileOpenErr != nil {
+			logrus.WithError(fileOpenErr).Errorf("error opening %s", urlFullFilename)
+			continue
+		}
+
+		fileInfo, fileStatErr := file.Stat()
+		if fileStatErr != nil {
+			logrus.WithError(fileStatErr).Error("file stat")
+			continue
+		}
+
 		var size int64 = fileInfo.Size()
 		file.Close()
 
-		err = os.Chown(urlFullFilename, cfg.ChownTo, cfg.ChownTo)
-		CheckError(err)
+		if err := os.Chown(urlFullFilename, cfg.ChownTo, cfg.ChownTo); err != nil {
+			logrus.WithError(err).Error("chown")
+			continue
+		}
 
 		fmt.Printf("%s\t%d\n", urlFullFilename, size)
 	}

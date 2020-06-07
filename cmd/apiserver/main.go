@@ -57,12 +57,6 @@ var (
 	fbAuth           *auth.Client
 )
 
-func checkError(msg string, err error) {
-	if err != nil {
-		logrus.WithError(err).Error(msg)
-	}
-}
-
 // @title Rhema API
 // @version 1.0
 // @description This is a REST interface for the Rhema content to audio system
@@ -76,38 +70,44 @@ func checkError(msg string, err error) {
 func main() {
 	cfg = config{}
 	if err := env.Parse(&cfg); err != nil {
-		checkError("parse config", err)
+		logrus.WithError(err).Fatal("parse config")
 	}
 
 	if level, err := logrus.ParseLevel(cfg.LogLevel); err != nil {
-		checkError("parse log level", err)
+		logrus.WithError(err).Fatal("parse log level")
 	} else {
 		logrus.SetLevel(level)
 	}
 
 	if app, err := firebase.NewApp(context.Background(), nil); err != nil {
-		logrus.WithError(err).Fatalf("new firebase app")
+		logrus.WithError(err).Fatal("new firebase app")
 	} else {
 		fbApp = app
 	}
 
 	// Access auth service from the default app
 	if client, err := fbApp.Auth(context.Background()); err != nil {
-		logrus.WithError(err).Fatalf("new firebase auth")
+		logrus.WithError(err).Fatal("new firebase auth")
 	} else {
 		fbAuth = client
 	}
 
-	var err1 error
-	esClient, err1 = elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
-	checkError("new default elasticsearch client", err1)
+	var newESClientErr error
+	esClient, newESClientErr = elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
+	if newESClientErr != nil {
+		logrus.WithError(newESClientErr).Fatal("new elasticsearch client")
+	}
 
 	ctx := context.Background()
-	gcpClient, err := storage.NewClient(ctx)
-	checkError("new default gcp storage client", err)
+	gcpClient, newStorageErr := storage.NewClient(ctx)
+	if newStorageErr != nil {
+		logrus.WithError(newStorageErr).Fatal("new default gcp storage client")
+	}
 
-	contentStorage, err := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
-	checkError("NewContentStorage: %v", err)
+	contentStorage, newContentStorageErr := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
+	if newContentStorageErr != nil {
+		logrus.WithError(newContentStorageErr).Fatal("new content storage")
+	}
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 

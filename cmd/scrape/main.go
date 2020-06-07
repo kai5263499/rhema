@@ -9,7 +9,6 @@ import (
 	"github.com/caarlos0/env"
 	"github.com/gofrs/uuid"
 	. "github.com/kai5263499/rhema"
-	. "github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	"github.com/sirupsen/logrus"
@@ -36,18 +35,20 @@ func (fs *placeholderContentStore) GetConfig(key string) (bool, string) { return
 func (fs *placeholderContentStore) SetConfig(key string, value string) bool { return false }
 
 func main() {
-	var err error
 	cfg = config{}
-	err = env.Parse(&cfg)
-	CheckError(err)
+	if err := env.Parse(&cfg); err != nil {
+		logrus.WithError(err).Fatal("parse config")
+	}
 
 	if len(os.Args) < 2 {
 		logrus.Errorf("wrong number of arguments\n")
 	}
 
-	level, err := logrus.ParseLevel(cfg.LogLevel)
-	CheckError(err)
-	logrus.SetLevel(level)
+	if level, err := logrus.ParseLevel(cfg.LogLevel); err != nil {
+		logrus.WithError(err).Fatal("parse level")
+	} else {
+		logrus.SetLevel(level)
+	}
 
 	scrape := NewScrape(&placeholderContentStore{}, uint32(cfg.MinTextBlockSize), cfg.LocalPath, cfg.TitleLengthLimit)
 
@@ -62,11 +63,18 @@ func main() {
 			RequestHash: newUUID.String(),
 		}
 
-		req, err = scrape.Convert(req)
-		CheckError(err)
+		var scrapeConvertErr error
+		req, scrapeConvertErr = scrape.Convert(req)
+		if scrapeConvertErr != nil {
+			logrus.WithError(scrapeConvertErr).Error("scrape convert")
+			continue
+		}
 
-		bytes, err := json.Marshal(req)
-		CheckError(err)
+		bytes, jsonMarshalErr := json.Marshal(req)
+		if jsonMarshalErr != nil {
+			logrus.WithError(jsonMarshalErr).Error("json marshal")
+			continue
+		}
 
 		fmt.Println(string(bytes))
 	}

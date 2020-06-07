@@ -95,9 +95,9 @@ var _ = Describe("content_item", func() {
 		}
 
 		for _, tc := range tests {
-			s3path, err := getPath(tc.req)
+			path, err := getPath(tc.req)
 			Expect(err).To(BeNil())
-			Expect(s3path).To(Equal(tc.want))
+			Expect(path).To(Equal(tc.want))
 		}
 	})
 })

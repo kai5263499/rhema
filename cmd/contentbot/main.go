@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
-	. "github.com/kai5263499/rhema/domain"
 )
 
 type config struct {
@@ -36,23 +35,32 @@ var (
 )
 
 func main() {
-	var err error
 	cfg = config{}
-	err = env.Parse(&cfg)
-	CheckError(err)
+	if err := env.Parse(&cfg); err != nil {
+		logrus.WithError(err).Fatal("parse configs")
+	}
 
-	level, err := logrus.ParseLevel(cfg.LogLevel)
-	CheckError(err)
-	logrus.SetLevel(level)
+	if level, err := logrus.ParseLevel(cfg.LogLevel); err != nil {
+		logrus.WithError(err).Fatal("parse log level")
+	} else {
+		logrus.SetLevel(level)
+	}
 
-	esClient, err := elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
-	CheckError(err)
+	esClient, newESClientErr := elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
+	if newESClientErr != nil {
+		logrus.WithError(newESClientErr).Fatal("new elasticsearch client")
+	}
 
 	ctx := context.Background()
-	gcpClient, err := storage.NewClient(ctx)
-	CheckError(err)
+	gcpClient, newGCPStorageErr := storage.NewClient(ctx)
+	if newGCPStorageErr != nil {
+		logrus.WithError(newGCPStorageErr).Fatal("new gcp storage client")
+	}
 
-	contentStorage, err := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
+	contentStorage, newStorageErr := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
+	if newStorageErr != nil {
+		logrus.WithError(newStorageErr).Fatal("new storage client")
+	}
 
 	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
 

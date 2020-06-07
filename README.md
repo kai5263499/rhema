@@ -9,13 +9,11 @@ rhema is the Greek word for "utterance" or "thing said". This project is all abo
 Developing on this project is as easy as:
 ~~~~bash
 # Set some env vars
-export S3_BUCKET="my-s3-bucket"
-export AWS_DEFAULT_REGION="aws-default-region"
-export AWS_ACCESS_KEY_ID="aws-access-key"
-export AWS_SECRET_ACCESS_KEY="aws-secret-access-key"
+export BUCKET="my-bucket"
 export LOCAL_DEV_PATH="/my/local/dev/path"
 export LOCAL_CONTENT_PATH="/local/content/path"
-
+export ELASTICSEARCH_URL="http://localhost:9001"
+export GOOGLE_APPLICATION_CREDENTIALS="/local/gcp/json/creds"
 # make the builder image
 make builder-image
 
@@ -42,10 +40,7 @@ Use the process-url image to process a URL into an mp3 stored in the `${LOCAL_PA
 ~~~~bash
 docker run \
 --rm \
--e S3_BUCKET="${S3_BUCKET}" \
--e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
--e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
--e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+-e BUCKET="${BUCKET}" \
 -v ${LOCAL_PATH}:/data \
 --tmpfs /tmp \
 kai5263499/rhema-process-url "${URI}"
@@ -57,10 +52,7 @@ Use the bot image to connect to have a bot listen for URLS posted on a slack cha
 ~~~~bash
 docker run \
 -it --rm \
--e S3_BUCKET="${S3_BUCKET}" \
--e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
--e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
--e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+-e BUCKET="${BUCKET}" \
 -e SLACK_TOKEN="${SLACK_TOKEN}" \
 -e LOG_LEVEL="${LOG_LEVEL}" \
 -v ${LOCAL_CONTENT_PATH}:/data \
