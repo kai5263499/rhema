@@ -5,21 +5,46 @@ import (
 	"os"
 	"path"
 
+	"cloud.google.com/go/storage"
 	pb "github.com/kai5263499/rhema/generated"
 
 	"path/filepath"
 
 	"github.com/gofrs/uuid"
 
+	"github.com/olivere/elastic/v7"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
+
+type placeholderGCPClient struct{}
+
+func (c *placeholderGCPClient) Bucket(name string) *storage.BucketHandle {
+	return &storage.BucketHandle{}
+}
+
+type placeholderESClient struct{}
+
+func (c *placeholderESClient) Index() *elastic.IndexService { return &elastic.IndexService{} }
+func (c *placeholderESClient) IndexExists(indices ...string) *elastic.IndicesExistsService {
+	return &elastic.IndicesExistsService{}
+}
+func (c *placeholderESClient) CreateIndex(name string) *elastic.IndicesCreateService {
+	return &elastic.IndicesCreateService{}
+}
+func (c *placeholderESClient) Get() *elastic.GetService       { return &elastic.GetService{} }
+func (c *placeholderESClient) Update() *elastic.UpdateService { return &elastic.UpdateService{} }
+func (c *placeholderESClient) Search(indices ...string) *elastic.SearchService {
+	return &elastic.SearchService{}
+}
 
 var _ = Describe("content_storage", func() {
 	PIt("Should store the text file in S3", func() {
 		var err error
 
-		cs := NewContentStorage("/tmp", "my-bucket")
+		cs, err := NewContentStorage("/tmp", "my-bucket", &placeholderGCPClient{}, &placeholderESClient{})
+		Expect(err).To(BeNil())
 
 		requestContent := "this is the scraped text data from a url request"
 

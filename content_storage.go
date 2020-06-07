@@ -243,7 +243,7 @@ func (cs *ContentStorage) esStore(ci *pb.Request) error {
 			return err
 		}
 
-		logrus.Debugf("es upserted doc status=%s", resp.Status)
+		logrus.Debugf("es upserted doc status=%d", resp.Status)
 	} else {
 
 		logrus.WithFields(logrus.Fields{
@@ -258,7 +258,7 @@ func (cs *ContentStorage) esStore(ci *pb.Request) error {
 			return err
 		}
 
-		logrus.Debugf("es index new doc status=%s", resp.Status)
+		logrus.Debugf("es index new doc status=%d", resp.Status)
 	}
 
 	return nil
