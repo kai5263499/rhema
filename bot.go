@@ -5,20 +5,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
-	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/kai5263499/glossa"
-	. "github.com/kai5263499/rhema/domain"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
-	"github.com/nlopes/slack"
 	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
+	"github.com/slack-go/slack"
 )
 
 const (
@@ -31,18 +28,16 @@ type botCommand struct {
 	pattern glossa.Pattern
 }
 
-func NewBot(slackToken string, requestProcessor Processor, localPath string, tmpPath string, chownTo int, channels []string) *Bot {
+func NewBot(slackToken string, channels []string, tmpPath string, chownTo int, comms domain.Comms) *Bot {
 	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
 
 	bot := &Bot{
-		slackToken:       slackToken,
-		requestProcessor: requestProcessor,
-		localPath:        localPath,
-		tmpPath:          tmpPath,
-		chownTo:          chownTo,
-		channels:         channels,
-		patterns:         make([]botCommand, 0),
-		cache:            cache.New(5*time.Minute, 10*time.Minute),
+		slackToken: slackToken,
+		tmpPath:    tmpPath,
+		chownTo:    chownTo,
+		channels:   channels,
+		patterns:   make([]botCommand, 0),
+		cache:      cache.New(5*time.Minute, 10*time.Minute),
 	}
 
 	commands, _ := bot.initPatterns()
@@ -56,22 +51,19 @@ var (
 )
 
 type Bot struct {
-	api              *slack.Client
-	rtm              *slack.RTM
-	slackToken       string
-	requestProcessor Processor
-	localPath        string
-	tmpPath          string
-	chownTo          int
-	channels         []string
-	slackChannels    []*slack.Channel
-	patterns         []botCommand
-	cache            *cache.Cache
+	api           *slack.Client
+	rtm           *slack.RTM
+	slackToken    string
+	channels      []string
+	slackChannels []*slack.Channel
+	patterns      []botCommand
+	cache         *cache.Cache
+	tmpPath       string
+	chownTo       int
+	comms         domain.Comms
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
-	var err error
-
 	newUUID := uuid.Must(uuid.NewV4())
 
 	contentRequest := pb.Request{
@@ -84,90 +76,12 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 		RequestHash: newUUID.String(),
 	}
 
-	resultingItem, err := b.requestProcessor.Process(contentRequest)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to process `%s` err=%+#v", FAILURE_EMOJI, user.Name, uri, err), channel))
+	if err := b.comms.SendRequest(contentRequest); err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request for processing `%s` err=%+#v", FAILURE_EMOJI, user.Name, uri, err), channel))
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"uri": uri,
-		}).Errorf("processing item")
+		}).Errorf("send request")
 		return
-	}
-
-	urlFilename, err := GetFilePath(resultingItem)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to get file path `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.Uri, err), channel))
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"uri": uri,
-		}).Errorf("get file path")
-		return
-	}
-
-	baseUrlFilename := path.Base(urlFilename)
-
-	urlFullFilename := filepath.Join(b.localPath, baseUrlFilename)
-
-	err = DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to download `%s` -> `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.DownloadURI, path.Base(urlFullFilename), err), channel))
-		logrus.WithFields(logrus.Fields{
-			"downloadURI":     resultingItem.DownloadURI,
-			"urlFullFilename": urlFullFilename,
-			"err":             err,
-		}).Errorf("download uri to file")
-		return
-	}
-
-	file, err := os.Open(urlFullFilename)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to open `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
-		logrus.WithFields(logrus.Fields{
-			"urlFullFilename": urlFullFilename,
-			"err":             err,
-		}).Errorf("open url file")
-		return
-	}
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to stat `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
-		logrus.WithFields(logrus.Fields{
-			"urlFullFilename": urlFullFilename,
-			"err":             err,
-		}).Errorf("file info")
-		return
-	}
-
-	var size int64 = fileInfo.Size()
-	file.Close()
-
-	err = os.Chown(urlFullFilename, b.chownTo, b.chownTo)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to chown `%s` to `%d` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), b.chownTo, err), channel))
-		logrus.WithFields(logrus.Fields{
-			"urlFullFilename": urlFullFilename,
-			"chownTo":         b.chownTo,
-			"err":             err,
-		}).Errorf("chown")
-		return
-	}
-
-	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I've processed `%s` which is `%d` bytes and downloadable from %s", SUCCESS_EMOJI, user.Name, path.Base(urlFullFilename), size, resultingItem.DownloadURI), channel))
-
-	if upload {
-		params := slack.FileUploadParameters{
-			Title:          resultingItem.Title,
-			File:           urlFullFilename,
-			Channels:       []string{channel},
-			InitialComment: fmt.Sprintf("%s <@%s> I've uploaded `%s`", SUCCESS_EMOJI, user.Name, urlFullFilename),
-		}
-		_, err := b.api.UploadFile(params)
-		if err != nil {
-			logrus.WithFields(logrus.Fields{
-				"urlFullFilename": urlFullFilename,
-				"err":             err,
-			}).Errorf("file upload")
-			return
-		}
 	}
 }
 
@@ -228,88 +142,13 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 }
 
 func (b *Bot) processUploadRequest(ci pb.Request, user *slack.User, channel string) {
-	fileName, err := GetFilePath(ci)
-	if err != nil {
-		logrus.WithError(err).Errorf("unable to get local file path")
+	if err := b.comms.SendRequest(ci); err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request to the processor err=%+#v", FAILURE_EMOJI, user.Name, err), channel))
+		logrus.WithError(err).Errorf("send request")
 		return
 	}
 
-	fullFilename := filepath.Join(b.tmpPath, fileName)
-
-	if err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm); err != nil {
-		logrus.WithError(err).Errorf("unable to create %s", path.Dir(fullFilename))
-		return
-	}
-
-	err = ioutil.WriteFile(fullFilename, []byte(ci.Text), 0600)
-	if err != nil {
-		logrus.WithError(err).Errorf("unable to write local file %s", fullFilename)
-		return
-	}
-
-	logrus.Debugf("treating upload as text with %d bytes saved to %s", len(ci.Text), fullFilename)
-
-	resultingItem, err := b.requestProcessor.Process(ci)
-
-	urlFilename, err := GetFilePath(resultingItem)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to get file path `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.Uri, err), channel))
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"title": resultingItem.Title,
-		}).Errorf("get file path")
-		return
-	}
-
-	baseUrlFilename := path.Base(urlFilename)
-
-	urlFullFilename := filepath.Join(b.localPath, baseUrlFilename)
-
-	err = DownloadUriToFile(resultingItem.DownloadURI, urlFullFilename)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to download `%s` -> `%s` err=%+#v", FAILURE_EMOJI, user.Name, resultingItem.DownloadURI, path.Base(urlFullFilename), err), channel))
-		logrus.WithFields(logrus.Fields{
-			"downloadURI":     resultingItem.DownloadURI,
-			"urlFullFilename": urlFullFilename,
-			"err":             err,
-		}).Errorf("download uri to file")
-		return
-	}
-
-	file, err := os.Open(urlFullFilename)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to open `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
-		logrus.WithFields(logrus.Fields{
-			"urlFullFilename": urlFullFilename,
-			"err":             err,
-		}).Errorf("open url file")
-		return
-	}
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to stat `%s` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), err), channel))
-		logrus.WithFields(logrus.Fields{
-			"urlFullFilename": urlFullFilename,
-			"err":             err,
-		}).Errorf("file info")
-		return
-	}
-
-	var size int64 = fileInfo.Size()
-	file.Close()
-
-	err = os.Chown(urlFullFilename, b.chownTo, b.chownTo)
-	if err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to chown `%s` to `%d` err=%+#v", FAILURE_EMOJI, user.Name, path.Base(urlFullFilename), b.chownTo, err), channel))
-		logrus.WithFields(logrus.Fields{
-			"urlFullFilename": urlFullFilename,
-			"chownTo":         b.chownTo,
-			"err":             err,
-		}).Errorf("chown")
-		return
-	}
-
-	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I've processed `%s` which is `%d` bytes and downloadable from %s", SUCCESS_EMOJI, user.Name, path.Base(urlFullFilename), size, resultingItem.DownloadURI), channel))
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I've sent your request to the processor", SUCCESS_EMOJI, user.Name), channel))
 }
 
 func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
@@ -445,13 +284,13 @@ func (b *Bot) Start() {
 
 	b.rtm = b.api.NewRTM()
 	go b.rtm.ManageConnection()
-	go b.slackReadLoop()
-
 	b.joinChannels()
+	go b.slackReadLoop()
 }
 
 func (b *Bot) getConfig(key string, user *slack.User, channel string) {
-	found, val := b.requestProcessor.GetConfig(key)
+	// TODO: Return user prefs
+	found, val := false, ""
 
 	logrus.WithFields(logrus.Fields{
 		"found": found,
@@ -466,7 +305,8 @@ func (b *Bot) getConfig(key string, user *slack.User, channel string) {
 }
 
 func (b *Bot) setConfig(key string, val string, user *slack.User, channel string) {
-	result := b.requestProcessor.SetConfig(key, val)
+	// TODO: Capture user prefs
+	result := false
 
 	if result {
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> config property %s set to %s", SUCCESS_EMOJI, user.Name, key, val), channel))

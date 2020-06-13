@@ -14,7 +14,7 @@ import (
 
 var _ domain.Processor = (*RequestProcessor)(nil)
 
-func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, titleLengthLimit int) *RequestProcessor {
+func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, titleLengthLimit int, comms domain.Comms) *RequestProcessor {
 	return &RequestProcessor{
 		youtube:          youtube,
 		scrape:           scrape,
@@ -22,6 +22,7 @@ func NewRequestProcessor(localPath string, scrape domain.Converter, youtube doma
 		speedupAudio:     speedupAudio,
 		localPath:        localPath,
 		titleLengthLimit: titleLengthLimit,
+		comms:            comms,
 	}
 }
 
@@ -32,6 +33,7 @@ type RequestProcessor struct {
 	speedupAudio     domain.Converter
 	localPath        string
 	titleLengthLimit int
+	comms            domain.Comms
 }
 
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.Request_ContentType {

@@ -14,20 +14,18 @@ import (
 
 var _ domain.Converter = (*SpeedupAudio)(nil)
 
-func NewSpeedupAudio(contentStorage *ContentStorage, localPath string, atempo float32) *SpeedupAudio {
+func NewSpeedupAudio(localPath string, atempo float32) *SpeedupAudio {
 	return &SpeedupAudio{
-		contentStorage: contentStorage,
-		localPath:      localPath,
-		execCommand:    exec.Command,
-		atempo:         atempo,
+		localPath:   localPath,
+		execCommand: exec.Command,
+		atempo:      atempo,
 	}
 }
 
 type SpeedupAudio struct {
-	contentStorage domain.Storage
-	localPath      string
-	execCommand    func(command string, args ...string) *exec.Cmd
-	atempo         float32
+	localPath   string
+	execCommand func(command string, args ...string) *exec.Cmd
+	atempo      float32
 }
 
 func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
@@ -46,7 +44,7 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 		"-filter:a", fmt.Sprintf("atempo=%.1f, volume=10dB", sa.atempo),
 		"-c:a", "libmp3lame", "-q:a", "4", tmpFullFilename)
 
-	if err = ffmpegCmd.Run(); err != nil {
+	if err := ffmpegCmd.Run(); err != nil {
 		return ci, err
 	}
 	ffmpegCmd.Wait()
@@ -61,17 +59,11 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 
 	logrus.Debugf("before rename %s -> %s", tmpFullFilename, mp3FullFilename)
 
-	err = os.Rename(tmpFullFilename, mp3FullFilename)
-	if err != nil {
+	if err := os.Rename(tmpFullFilename, mp3FullFilename); err != nil {
 		return ci, err
 	}
 
-	storedItem, err := sa.contentStorage.Store(ci)
-	if err != nil {
-		return ci, err
-	}
-
-	return storedItem, nil
+	return ci, nil
 }
 
 func (sa *SpeedupAudio) SetConfig(key string, value string) bool {

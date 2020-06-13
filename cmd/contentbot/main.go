@@ -1,33 +1,24 @@
 package main
 
 import (
-	"context"
 	"os"
 	"os/signal"
+	"time"
 
-	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env"
-	"github.com/olivere/elastic/v7"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
 )
 
 type config struct {
-	SlackToken                   string   `env:"SLACK_TOKEN"`
-	MinTextBlockSize             int      `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	Bucket                       string   `env:"BUCKET"`
-	TmpPath                      string   `env:"TMP_PATH" envDefault:"/tmp"`
-	WordsPerMinute               int      `env:"WORDS_PER_MINUTE" envDefault:"350"`
-	EspeakVoice                  string   `env:"ESPEAK_VOICE" envDefault:"f5"`
-	LocalPath                    string   `env:"LOCAL_PATH" envDefault:"/data"`
-	Atempo                       float32  `env:"ATEMPO" envDefault:"2.0"`
-	ChownTo                      int      `env:"CHOWN_TO" envDefault:"1000"`
-	LogLevel                     string   `env:"LOG_LEVEL" envDefault:"info"`
-	Channels                     []string `env:"CHANNELS" envDefault:"content"`
-	TitleLengthLimit             int      `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
-	ElasticSearchAddress         string   `env:"ELASTICSEARCH_URL" envDefault:"http://localhost:9200"`
-	GoogleApplicationCredentials string   `env:"GOOGLE_APPLICATION_CREDENTIALS"`
+	MQTTBroker string   `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	SlackToken string   `env:"SLACK_TOKEN"`
+	Channels   []string `env:"CHANNELS" envDefault:"content"`
+	LogLevel   string   `env:"LOG_LEVEL" envDefault:"info"`
+	TmpPath    string   `env:"TMP_PATH" envDefault:"/tmp"`
+	ChownTo    int      `env:"CHOWN_TO" envDefault:"1000"`
 }
 
 var (
@@ -46,30 +37,19 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	esClient, newESClientErr := elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
-	if newESClientErr != nil {
-		logrus.WithError(newESClientErr).Fatal("new elasticsearch client")
+	opts := mqtt.NewClientOptions().AddBroker(cfg.MQTTBroker).SetClientID("contentbot")
+	// opts.SetDefaultPublishHandler(mqttMessageHandler)
+	opts.SetKeepAlive(2 * time.Second)
+	opts.SetPingTimeout(1 * time.Second)
+
+	mqttClient := mqtt.NewClient(opts)
+	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+		logrus.WithError(token.Error()).Fatal("mqtt new client")
 	}
 
-	ctx := context.Background()
-	gcpClient, newGCPStorageErr := storage.NewClient(ctx)
-	if newGCPStorageErr != nil {
-		logrus.WithError(newGCPStorageErr).Fatal("new gcp storage client")
-	}
+	mqttComms := NewMqttComms(mqttClient)
 
-	contentStorage, newStorageErr := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
-	if newStorageErr != nil {
-		logrus.WithError(newStorageErr).Fatal("new storage client")
-	}
-
-	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
-
-	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath, cfg.TitleLengthLimit)
-	text2mp3 := NewText2Mp3(contentStorage, cfg.TmpPath, cfg.WordsPerMinute, cfg.EspeakVoice)
-	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)
-	contentProcessor := NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit)
-
-	bot := NewBot(cfg.SlackToken, contentProcessor, cfg.LocalPath, cfg.TmpPath, cfg.ChownTo, cfg.Channels)
+	bot := NewBot(cfg.SlackToken, cfg.Channels, cfg.TmpPath, cfg.ChownTo, mqttComms)
 	bot.Start()
 
 	c := make(chan os.Signal, 1)

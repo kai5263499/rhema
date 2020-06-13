@@ -58,10 +58,9 @@ var _ = Describe("speedup_audio", func() {
 		newUUID := uuid.Must(uuid.NewV4())
 
 		tm := SpeedupAudio{
-			localPath:      "/tmp",
-			contentStorage: &fakeContentStore{},
-			execCommand:    fakeSUAExecCommand,
-			atempo:         2.0,
+			localPath:   "/tmp",
+			execCommand: fakeSUAExecCommand,
+			atempo:      2.0,
 		}
 
 		requestContent := "this is a test"

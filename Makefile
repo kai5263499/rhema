@@ -22,6 +22,7 @@ go-protos:
 exec-interactive:
 	docker run -it --rm \
 	-e BUCKET="${BUCKET}" \
+	-e MQTT_BROKER="${MQTT_BROKER}" \
 	-e SLACK_TOKEN="${SLACK_TOKEN}" \
 	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-e CHANNELS="${CHANNELS}" \
@@ -44,6 +45,18 @@ exec-contentbot:
 	-v ${LOCAL_TMP_PATH}:/tmp \
 	kai5263499/rhema-bot
 
+exec-apiserver:
+	docker run -it --rm \
+	-p 8081:8080 \
+	-e BUCKET="${BUCKET}" \
+	-e LOG_LEVEL="${LOG_LEVEL}" \
+	-e GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp/service-account-file.json" \
+	-e ELASTICSEARCH_URL=${ELASTICSEARCH_URL} \
+	-v ${LOCAL_CONTENT_PATH}:/data \
+	-v ${LOCAL_TMP_PATH}:/tmp \
+	-v ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json \
+	kai5263499/rhema-apiserver
+
 elasticsearch:
 	docker run -d \
 	-p 9200:9200 \
@@ -52,7 +65,24 @@ elasticsearch:
 	-e "discovery.type=single-node" \
 	docker.elastic.co/elasticsearch/elasticsearch:7.6.1
 
+mqtt-mosquito:
+	docker run -d \
+	--name mosquito \
+	-p 1883:1883 -p 9001:9001 \
+	-v /mosquitto/data \
+	-v /mosquitto/log \
+	eclipse-mosquitto
+
+all-services:
+	cd cmd/apiserver && go build
+	cd cmd/contentbot && go build
+	cd cmd/processurl && go build
+	cd cmd/scrape && go build
+	cd cmd/processurl  && go build
+	cd cmd/requestprocessor && go build
+	cd cmd/requeststorage && go build
+
 test:
 	go test
 
-.PHONY: image exec-interactive protos test
+.PHONY: image exec-interactive protos test all-services

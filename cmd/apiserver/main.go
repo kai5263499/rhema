@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofrs/uuid"
 	"github.com/sirupsen/logrus"
 
@@ -24,25 +24,13 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/olivere/elastic/v7"
-
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/auth"
 )
 
 type config struct {
-	LogLevel                     string  `env:"LOG_LEVEL" envDefault:"debug"`
-	MinTextBlockSize             int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	Bucket                       string  `env:"BUCKET"`
-	TmpPath                      string  `env:"TMP_PATH" envDefault:"/tmp"`
-	WordsPerMinute               int     `env:"WORDS_PER_MINUTE" envDefault:"350"`
-	EspeakVoice                  string  `env:"ESPEAK_VOICE" envDefault:"f5"`
-	LocalPath                    string  `env:"LOCAL_PATH" envDefault:"/data"`
-	Atempo                       float32 `env:"ATEMPO" envDefault:"2.0"`
-	ChownTo                      int     `env:"CHOWN_TO" envDefault:"1000"`
-	TitleLengthLimit             int     `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
-	ElasticSearchAddress         string  `env:"ELASTICSEARCH_URL" envDefault:"http://localhost:9200"`
-	GoogleApplicationCredentials string  `env:"GOOGLE_APPLICATION_CREDENTIALS"`
+	MQTTBroker string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	LogLevel   string `env:"LOG_LEVEL" envDefault:"debug"`
 }
 
 const (
@@ -50,11 +38,10 @@ const (
 )
 
 var (
-	cfg              config
-	contentProcessor *RequestProcessor
-	esClient         *elastic.Client
-	fbApp            *firebase.App
-	fbAuth           *auth.Client
+	cfg    config
+	fbApp  *firebase.App
+	fbAuth *auth.Client
+	comms  *MqttComms
 )
 
 // @title Rhema API
@@ -92,29 +79,15 @@ func main() {
 		fbAuth = client
 	}
 
-	var newESClientErr error
-	esClient, newESClientErr = elastic.NewClient(elastic.SetURL(cfg.ElasticSearchAddress))
-	if newESClientErr != nil {
-		logrus.WithError(newESClientErr).Fatal("new elasticsearch client")
+	opts := mqtt.NewClientOptions().AddBroker(cfg.MQTTBroker).SetClientID("apiserver")
+	// opts.SetDefaultPublishHandler(mqttMessageHandler)
+	opts.SetKeepAlive(2 * time.Second)
+	opts.SetPingTimeout(1 * time.Second)
+
+	mqttClient := mqtt.NewClient(opts)
+	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+		logrus.WithError(token.Error()).Fatal("mqtt new client")
 	}
-
-	ctx := context.Background()
-	gcpClient, newStorageErr := storage.NewClient(ctx)
-	if newStorageErr != nil {
-		logrus.WithError(newStorageErr).Fatal("new default gcp storage client")
-	}
-
-	contentStorage, newContentStorageErr := NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, esClient)
-	if newContentStorageErr != nil {
-		logrus.WithError(newContentStorageErr).Fatal("new content storage")
-	}
-
-	speedupAudo := NewSpeedupAudio(contentStorage, cfg.TmpPath, cfg.Atempo)
-
-	scrape := NewScrape(contentStorage, uint32(cfg.MinTextBlockSize), cfg.TmpPath, cfg.TitleLengthLimit)
-	text2mp3 := NewText2Mp3(contentStorage, cfg.TmpPath, cfg.WordsPerMinute, cfg.EspeakVoice)
-	youtube := NewYoutube(scrape, contentStorage, speedupAudo, cfg.TmpPath)
-	contentProcessor = NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/request", createRequest).Methods("POST")
@@ -156,12 +129,12 @@ func createRequest(w http.ResponseWriter, r *http.Request) {
 
 	if request.Text != "" {
 		request.Type = pb.Request_TEXT
-		go contentProcessor.Process(request)
 	} else if request.Uri != "" {
 		request.Type = pb.Request_URI
 		request.Title = newUUID.String()
-		go contentProcessor.Process(request)
-	} else {
+	}
+
+	if err := comms.SendRequest(request); err != nil {
 		request.Text = "Invalid request. Uri or Text field must be provided."
 	}
 
@@ -186,23 +159,7 @@ func getRequests(w http.ResponseWriter, r *http.Request) {
 		"SubmittedBy": submittedBy,
 	}).Debugf("performing request")
 
-	var request generated.Request
 	var requests []generated.Request
-
-	ctx := context.Background()
-	termQuery := elastic.NewTermQuery("SubmittedBy", submittedBy)
-	searchResult, _ := esClient.Search().
-		Index(esIndex).
-		Query(termQuery).
-		From(0).Size(100).
-		Do(ctx)
-
-	logrus.Debugf("got %d hits", len(searchResult.Hits.Hits))
-
-	for _, hit := range searchResult.Hits.Hits {
-		json.Unmarshal(hit.Source, &request)
-		requests = append(requests, request)
-	}
 
 	json.NewEncoder(w).Encode(requests)
 }
@@ -219,27 +176,7 @@ func getRequests(w http.ResponseWriter, r *http.Request) {
 func getRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	params := mux.Vars(r)
-	requestHash := params["requestHash"]
-
-	logrus.WithFields(logrus.Fields{
-		"RequestHash": requestHash,
-	}).Debugf("performing request")
-
-	ctx := context.Background()
-	termQuery := elastic.NewTermQuery("RequestHash", requestHash)
-	searchResult, _ := esClient.Search().
-		Index(esIndex).
-		Query(termQuery).
-		From(0).Size(1).
-		Do(ctx)
-
-	logrus.Debugf("got %d hits", len(searchResult.Hits.Hits))
-
-	hit := searchResult.Hits.Hits[0]
-
 	var request pb.Request
-	json.Unmarshal(hit.Source, &request)
 
 	json.NewEncoder(w).Encode(request)
 }

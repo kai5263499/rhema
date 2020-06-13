@@ -60,7 +60,6 @@ var _ = Describe("text2mp3", func() {
 		tm := Text2Mp3{
 			localPath:      "/tmp",
 			execCommand:    fakeExecCommand,
-			contentStorage: &fakeContentStore{},
 			wordsPerMinute: 350,
 			espeakVoice:    "f5",
 		}

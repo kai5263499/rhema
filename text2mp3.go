@@ -15,9 +15,8 @@ import (
 
 var _ domain.Converter = (*Text2Mp3)(nil)
 
-func NewText2Mp3(contentStorage domain.Storage, localPath string, wordsPerMinute int, espeakVoice string) *Text2Mp3 {
+func NewText2Mp3(localPath string, wordsPerMinute int, espeakVoice string) *Text2Mp3 {
 	return &Text2Mp3{
-		contentStorage: contentStorage,
 		localPath:      localPath,
 		execCommand:    exec.Command,
 		wordsPerMinute: wordsPerMinute,
@@ -26,7 +25,6 @@ func NewText2Mp3(contentStorage domain.Storage, localPath string, wordsPerMinute
 }
 
 type Text2Mp3 struct {
-	contentStorage domain.Storage
 	localPath      string
 	execCommand    func(command string, args ...string) *exec.Cmd
 	wordsPerMinute int
@@ -63,24 +61,21 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 	mp3FullFilename := filepath.Join(tm.localPath, mp3Filename)
 	wavFullFilename := fmt.Sprintf("%s%s", mp3FullFilename[:len(mp3FullFilename)-3], "wav")
 
-	err = os.MkdirAll(path.Dir(txtFullFilename), os.ModePerm)
-	if err != nil {
+	if err := os.MkdirAll(path.Dir(txtFullFilename), os.ModePerm); err != nil {
 		return ci, err
 	}
 
-	err = os.MkdirAll(path.Dir(wavFullFilename), os.ModePerm)
-	if err != nil {
+	if err := os.MkdirAll(path.Dir(wavFullFilename), os.ModePerm); err != nil {
 		return ci, err
 	}
 
-	err = os.MkdirAll(path.Dir(mp3FullFilename), os.ModePerm)
-	if err != nil {
+	if err := os.MkdirAll(path.Dir(mp3FullFilename), os.ModePerm); err != nil {
 		return ci, err
 	}
 
 	logrus.Debugf("running tts command with wavFilename=%s txtFilename=%s\n", wavFullFilename, txtFullFilename)
 	ttsCmd := tm.execCommand("espeak-ng", "-v", tm.espeakVoice, "-s", fmt.Sprintf("%d", tm.wordsPerMinute), "-m", "-w", wavFullFilename, "-f", txtFullFilename)
-	if err = ttsCmd.Run(); err != nil {
+	if err := ttsCmd.Run(); err != nil {
 		return ci, err
 	}
 	ttsCmd.Stdout = os.Stdout
@@ -89,14 +84,14 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 
 	logrus.Debugf("running lame command with wavFilename=%s mp3Filename=%s\n", wavFullFilename, mp3FullFilename)
 	lameCmd := tm.execCommand("lame", "-S", "-m", "m", wavFullFilename, mp3FullFilename)
-	if err = lameCmd.Run(); err != nil {
+	if err := lameCmd.Run(); err != nil {
 		return ci, err
 	}
 	lameCmd.Stdout = os.Stdout
 	lameCmd.Stderr = os.Stderr
 	lameCmd.Wait()
 
-	if err = os.Remove(wavFullFilename); err != nil {
+	if err := os.Remove(wavFullFilename); err != nil {
 		return ci, err
 	}
 
@@ -113,7 +108,7 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 
 	ci.Size = uint64(fileInfo.Size())
 
-	return tm.contentStorage.Store(ci)
+	return ci, nil
 }
 
 func (tm *Text2Mp3) SetConfig(key string, value string) bool {

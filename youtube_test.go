@@ -58,11 +58,10 @@ var _ = Describe("youtube", func() {
 		newUUID := uuid.Must(uuid.NewV4())
 
 		yt := YouTube{
-			localPath:      "/tmp",
-			execCommand:    fakeYTExecCommand,
-			contentStorage: &fakeContentStore{},
-			scrape:         &textConverter{},
-			speedupAudio:   &audioConverter{},
+			localPath:    "/tmp",
+			execCommand:  fakeYTExecCommand,
+			scrape:       &textConverter{},
+			speedupAudio: &audioConverter{},
 		}
 
 		requestContent := "this is a test"

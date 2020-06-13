@@ -21,3 +21,8 @@ type Processor interface {
 	GetConfig(string) (bool, string)
 	Process(pb.Request) (pb.Request, error)
 }
+
+type Comms interface {
+	RequestChan() chan pb.Request
+	SendRequest(req pb.Request) error
+}

@@ -1,22 +1,18 @@
 syntax = "proto3";
 
-option go_package = "generated";
+option go_package = ".;generated";
 
-service RequestProcessor {
-    rpc Submit(Request) returns (Response) {}
+enum ContentType {
+    URI = 0;
+    YOUTUBE = 1;
+    TEXT = 2;
+    AUDIO = 3;
+    VIDEO = 4;
+    PDF = 5;
+    YOUTUBE_LIST = 6;
 }
 
 message Request {
-    enum ContentType {
-        URI = 0;
-        YOUTUBE = 1;
-        TEXT = 2;
-        AUDIO = 3;
-        VIDEO = 4;
-        PDF = 5;
-        YOUTUBE_LIST = 6;
-    }
-
     ContentType Type = 1;
     string RequestHash = 2;
     string Text = 3;
@@ -29,13 +25,17 @@ message Request {
     uint64 SubmittedAt = 10;
     uint32 NumberOfConversions = 11;
     string DownloadURI = 12;
+    uint32 WordsPerMinute = 13;
+    string ESpeakVoice = 14;
+    uint32 ATempo = 15;
+}
+
+enum ResponseCode {
+    ERROR = 0;
+    ACCEPTED = 1;
 }
 
 message Response {
-    enum ResponseCode {
-        ERROR = 0;
-        ACCEPTED = 1;
-    }
     string RequestHash = 1;
     ResponseCode Code = 2;
 }
@@ -45,5 +45,4 @@ enum BotAction {
     GET_CONFIG = 1;
     SHOW_SETTINGS = 2;
     HELP = 4;
-
 }

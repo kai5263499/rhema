@@ -24,8 +24,7 @@ var _ = Describe("scrape", func() {
 		testText := "This should come from a file and contain real messy HTML examples"
 
 		scrape := Scrape{
-			localPath:      "/tmp",
-			contentStorage: &fakeContentStore{},
+			localPath: "/tmp",
 		}
 
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +69,6 @@ var _ = Describe("scrape", func() {
 		scrape := Scrape{
 			localPath:        "/tmp",
 			titleLengthLimit: 120,
-			contentStorage:   &fakeContentStore{},
 		}
 
 		for _, tc := range tests {
