@@ -62,12 +62,15 @@ const (
 )
 
 // NewContentStorage returns an instance of ContentStorage
-func NewContentStorage(localPath string, bucket string, gcpClient interfaces.GCPStorage) (*ContentStorage, error) {
+func NewContentStorage(tmpPath string, bucket string, gcpClient interfaces.GCPStorage, copyToLocal bool, localPath string, chownTo int) (*ContentStorage, error) {
 
 	cs := &ContentStorage{
+		tmpPath:       tmpPath,
 		localPath:     localPath,
+		copyToLocal:   copyToLocal,
 		bucket:        bucket,
 		storageClient: gcpClient,
+		chownTo:       chownTo,
 	}
 
 	return cs, nil
@@ -76,8 +79,34 @@ func NewContentStorage(localPath string, bucket string, gcpClient interfaces.GCP
 // ContentStorage persists content artifacts to S3
 type ContentStorage struct {
 	localPath     string
+	tmpPath       string
+	copyToLocal   bool
 	bucket        string
+	chownTo       int
 	storageClient interfaces.GCPStorage
+}
+
+func copyFileContents(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		cerr := out.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+	if _, err = io.Copy(out, in); err != nil {
+		return err
+	}
+	err = out.Sync()
+	return nil
 }
 
 // Store persists a content item in S3
@@ -87,7 +116,29 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 
-	if err := cs.doStore(&ci, itemPath); err != nil {
+	if cs.copyToLocal && ci.Type == pb.Request_AUDIO {
+		src := filepath.Join(cs.tmpPath, itemPath)
+		dst := filepath.Join(cs.localPath, filepath.Base(itemPath))
+
+		if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+			logrus.WithError(err).Errorf("unable to MkdirAll on %s", dst)
+			return ci, err
+		}
+
+		if err := copyFileContents(src, dst); err != nil {
+			logrus.WithError(err).Errorf("unable to copy %s to %s", src, dst)
+			return ci, err
+		}
+
+		if err := os.Chown(dst, cs.chownTo, cs.chownTo); err != nil {
+			logrus.WithError(err).Errorf("unable to chown %s to %d", dst, cs.chownTo)
+			return ci, err
+		}
+
+		logrus.Debugf("%s -> %s", src, dst)
+	}
+
+	if err := cs.doCloudStore(&ci, itemPath); err != nil {
 		return ci, err
 	}
 
@@ -139,13 +190,13 @@ func (cs *ContentStorage) presign(ci *pb.Request) error {
 	return nil
 }
 
-func (cs *ContentStorage) doStore(ci *pb.Request, path string) error {
+func (cs *ContentStorage) doCloudStore(ci *pb.Request, path string) error {
 	fileName, err := GetFilePath(*ci)
 	if err != nil {
 		return nil
 	}
 
-	fullFileName := filepath.Join(cs.localPath, fileName)
+	fullFileName := filepath.Join(cs.tmpPath, fileName)
 
 	// Open the file for use
 	f, err := os.Open(fullFileName)

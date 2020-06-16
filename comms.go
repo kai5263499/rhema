@@ -10,16 +10,43 @@ import (
 
 var _ domain.Comms = (*MqttComms)(nil)
 
-func NewMqttComms(mqttClient mqtt.Client) *MqttComms {
-	return &MqttComms{
+func NewMqttComms(clientID string, mqttBroker string) (*MqttComms, error) {
+
+	opts := mqtt.NewClientOptions().AddBroker(mqttBroker).SetClientID(clientID)
+	mqttClient := mqtt.NewClient(opts)
+	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+		logrus.WithError(token.Error()).Fatal("mqtt new client")
+		return nil, token.Error()
+	}
+
+	mc := &MqttComms{
 		mqttClient:  mqttClient,
 		requestChan: make(chan pb.Request, 100),
 	}
+
+	if token := mc.mqttClient.Subscribe(domain.RequestsTopic, 0, mc.messageHandler); token.Wait() && token.Error() != nil {
+		logrus.WithError(token.Error()).Fatal("mqtt subscribe")
+		return nil, token.Error()
+	}
+
+	return mc, nil
 }
 
 type MqttComms struct {
 	mqttClient  mqtt.Client
 	requestChan chan pb.Request
+}
+
+func (m *MqttComms) messageHandler(client mqtt.Client, msg mqtt.Message) {
+	logrus.Debugf("got message with %d bytes from %s", len(msg.Payload()), msg.Topic())
+
+	var req pb.Request
+	if err := proto.Unmarshal(msg.Payload(), &req); err != nil {
+		logrus.WithError(err).Errorf("unable to unmarshal request")
+		return
+	}
+
+	m.requestChan <- req
 }
 
 func (m *MqttComms) RequestChan() chan pb.Request {
@@ -37,6 +64,11 @@ func (m *MqttComms) SendRequest(req pb.Request) error {
 		logrus.WithError(token.Error()).Errorf("error sending request to marshal proto")
 		return token.Error()
 	}
+	logrus.Debugf("published %d bytes to %s", len(pubBytes), domain.RequestsTopic)
 
 	return nil
+}
+
+func (m *MqttComms) Close() {
+	m.mqttClient.Disconnect(100)
 }

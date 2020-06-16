@@ -27,9 +27,8 @@ exec-interactive:
 	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-e CHANNELS="${CHANNELS}" \
 	-e GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp/service-account-file.json" \
-	-e ELASTICSEARCH_URL=${ELASTICSEARCH_URL} \
-	-v ${LOCAL_DEV_PATH}:/go/src/github.com/kai5263499 \
-	-v ${LOCAL_CONTENT_PATH}:/data \
+	-v ${DEV_PATH}:/go/src/github.com/kai5263499 \
+	-v ${LOCAL_PATH}:/data \
 	-v ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json \
 	--tmpfs /tmp:exec \
 	-p 8090:8080 \
@@ -65,15 +64,16 @@ elasticsearch:
 	-e "discovery.type=single-node" \
 	docker.elastic.co/elasticsearch/elasticsearch:7.6.1
 
-mqtt-mosquito:
+mosquitto:
 	docker run -d \
-	--name mosquito \
+	--name mosquitto \
 	-p 1883:1883 -p 9001:9001 \
-	-v /mosquitto/data \
-	-v /mosquitto/log \
+	-v /tmp/mqtt-data:/mosquitto/data \
+	-v /tmp/mqtt-log:/mosquitto/log \
+	-v mosquitto.conf:/mosquitto/config/mosquitto.conf \
 	eclipse-mosquitto
 
-all-services:
+build-all:
 	cd cmd/apiserver && go build
 	cd cmd/contentbot && go build
 	cd cmd/processurl && go build

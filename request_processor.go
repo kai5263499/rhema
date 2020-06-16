@@ -65,8 +65,7 @@ func (rp *RequestProcessor) downloadUri(ci pb.Request) error {
 
 	urlFullFilename := filepath.Join(rp.localPath, urlFilename)
 
-	err = DownloadUriToFile(ci.Uri, urlFullFilename)
-	if err != nil {
+	if err := DownloadUriToFile(ci.Uri, urlFullFilename); err != nil {
 		return err
 	}
 
@@ -84,6 +83,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 
 		parsedTitle, err := parseTitleFromUri(ci.Uri)
+
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"err": err,
@@ -101,6 +101,12 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 
 		if len(ci.Title) > rp.titleLengthLimit {
 			ci.Title = ci.Title[0:rp.titleLengthLimit]
+
+			logrus.WithFields(logrus.Fields{
+				"err":      err,
+				"uri":      ci.Uri,
+				"ci.Title": ci.Title,
+			}).Warnf("parsed title too long")
 		}
 	}
 
@@ -124,6 +130,8 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 			return ci2, err
 		}
 
+		rp.comms.SendRequest(ci3)
+
 		return ci3, nil
 	case pb.Request_TEXT:
 		if len(ci.Text) < 1 {
@@ -142,6 +150,8 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 			return ci2, err
 		}
 
+		rp.comms.SendRequest(ci3)
+
 		return ci3, nil
 	case pb.Request_AUDIO:
 		err = rp.downloadUri(ci)
@@ -156,6 +166,8 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 			return ci, err
 		}
 
+		rp.comms.SendRequest(ci2)
+
 		return ci2, nil
 	case pb.Request_VIDEO:
 		err = rp.downloadUri(ci)
@@ -169,6 +181,8 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 			logrus.WithError(err).Errorf("error speeding up video")
 			return ci, err
 		}
+
+		rp.comms.SendRequest(ci2)
 
 		return ci2, nil
 	default:

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/caarlos0/env"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gofrs/uuid"
 	. "github.com/kai5263499/rhema"
 	pb "github.com/kai5263499/rhema/generated"
@@ -13,8 +12,9 @@ import (
 )
 
 type config struct {
-	MQTTBroker string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
-	LogLevel   string `env:"LOG_LEVEL" envDefault:"info"`
+	MQTTBroker   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTClientID string `env:"MQTT_CLIENT_ID" envDefault:"processurl"`
+	LogLevel     string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 var (
@@ -33,17 +33,10 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	opts := mqtt.NewClientOptions().AddBroker(cfg.MQTTBroker).SetClientID("processurl")
-	// opts.SetDefaultPublishHandler(mqttMessageHandler)
-	opts.SetKeepAlive(2 * time.Second)
-	opts.SetPingTimeout(1 * time.Second)
-
-	mqttClient := mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		logrus.WithError(token.Error()).Fatal("mqtt new client")
+	mqttComms, mqttCommsErr := NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
+	if mqttCommsErr != nil {
+		logrus.WithError(mqttCommsErr).Fatal("new mqtt comms")
 	}
-
-	mqttComms := NewMqttComms(mqttClient)
 
 	for _, arg := range os.Args[1:] {
 		newUUID := uuid.Must(uuid.NewV4())
@@ -63,4 +56,6 @@ func main() {
 
 		logrus.Infof("request successfully submitted to processor")
 	}
+
+	mqttComms.Close()
 }

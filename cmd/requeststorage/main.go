@@ -4,43 +4,35 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/kai5263499/rhema/domain"
-	pb "github.com/kai5263499/rhema/generated"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/proto"
 
 	. "github.com/kai5263499/rhema"
 )
 
 type config struct {
 	MQTTBroker                   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTClientID                 string `env:"MQTT_CLIENT_ID" envDefault:"requeststorage"`
 	Bucket                       string `env:"BUCKET"`
 	TmpPath                      string `env:"TMP_PATH" envDefault:"/tmp"`
 	ChownTo                      int    `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel                     string `env:"LOG_LEVEL" envDefault:"info"`
 	GoogleApplicationCredentials string `env:"GOOGLE_APPLICATION_CREDENTIALS"`
+	CopyTmpToLocal               bool   `env:"COPY_TMP_TO_LOCAL" envDefault:"true"`
+	LocalPath                    string `env:"LOCAL_PATH" envDefault:"/data"`
 }
 
 var (
 	cfg            config
 	contentStorage *ContentStorage
-	mqttClient     mqtt.Client
+	mqttComms      *MqttComms
 )
 
-var mqttMessageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	var req pb.Request
-	if err := proto.Unmarshal(msg.Payload(), &req); err != nil {
-		logrus.WithError(err).Errorf("request unmarshal error")
-		return
-	}
-
-	if _, err := contentStorage.Store(req); err != nil {
-		logrus.WithError(err).Errorf("error storing content")
+func mqttReadLoop() {
+	for req := range mqttComms.RequestChan() {
+		contentStorage.Store(req)
 	}
 }
 
@@ -56,20 +48,10 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	// mqtt.DEBUG = log.New(os.Stdout, "", 0)
-	// mqtt.ERROR = log.New(os.Stdout, "", 0)
-	opts := mqtt.NewClientOptions().AddBroker(cfg.MQTTBroker).SetClientID("requeststorage")
-	opts.SetDefaultPublishHandler(mqttMessageHandler)
-	opts.SetKeepAlive(2 * time.Second)
-	opts.SetPingTimeout(1 * time.Second)
-
-	mqttClient = mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
-	}
-
-	if token := mqttClient.Subscribe(domain.RequestsTopic, 0, nil); token.Wait() && token.Error() != nil {
-		logrus.WithError(token.Error()).Fatalf("error subscribing to topic %s", domain.RequestsTopic)
+	var mqttCommsErr error
+	mqttComms, mqttCommsErr = NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
+	if mqttCommsErr != nil {
+		logrus.WithError(mqttCommsErr).Fatal("new mqtt comms")
 	}
 
 	ctx := context.Background()
@@ -79,10 +61,14 @@ func main() {
 	}
 
 	var newStorageErr error
-	contentStorage, newStorageErr = NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient)
+	contentStorage, newStorageErr = NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, cfg.CopyTmpToLocal, cfg.LocalPath, cfg.ChownTo)
 	if newStorageErr != nil {
 		logrus.WithError(newStorageErr).Fatal("new storage client")
 	}
+
+	go mqttReadLoop()
+
+	logrus.Infof("finished setup, listening for messages from mqtt")
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
