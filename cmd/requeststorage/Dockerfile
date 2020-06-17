@@ -13,6 +13,7 @@ LABEL MAINTAINER="Wes Widner <kai5263499@gmail.com>"
 
 ENV LOG_LEVEL="info"
 ENV MQTT_BROKER=""
+ENV MQTT_CLIENT_ID="requeststorage"
 ENV BUCKET=""
 ENV LOCAL_PATH="/data"
 ENV TMP_PATH="/tmp"
