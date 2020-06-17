@@ -18,7 +18,7 @@ RUN echo "Install apt packages" && \
 RUN	echo "Install youtube-dl" && \
 	curl -sL https://github.com/ytdl-org/youtube-dl/releases/download/2019.11.28/youtube-dl -o /usr/local/bin/youtube-dl && \
 	chmod +x /usr/local/bin/youtube-dl && \
-	youtube-dl -U
+	/usr/local/bin/youtube-dl -U
 
 RUN echo "Install golang" && \
 	curl -sLO https://dl.google.com/go/go1.13.3.linux-amd64.tar.gz && \

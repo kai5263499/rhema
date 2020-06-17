@@ -23,10 +23,12 @@ ENV TITLE_LENGTH_LIMIT="40"
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
-    apt-get install -y lame espeak-ng espeak-ng-data ffmpeg python ca-certificates && \
-    youtube-dl -U
+    apt-get install -y lame espeak-ng espeak-ng-data ffmpeg python ca-certificates
 
 COPY --from=builder /usr/local/bin/youtube-dl /usr/local/bin/youtube-dl
+
+RUN /usr/local/bin/youtube-dl -U
+
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/requestprocessor/deps /
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/requestprocessor/requestprocessor /requestprocessor
 
