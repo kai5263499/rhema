@@ -6,4 +6,6 @@ cmd/contentbot/contentbot
 cmd/apiserver/apiserver
 cmd/requestprocessor/requestprocessor
 cmd/requeststorage/requeststorage
+
 mosquitto.conf
+environ.rc

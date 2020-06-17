@@ -62,7 +62,15 @@ const (
 )
 
 // NewContentStorage returns an instance of ContentStorage
-func NewContentStorage(tmpPath string, bucket string, gcpClient interfaces.GCPStorage, copyToLocal bool, localPath string, chownTo int) (*ContentStorage, error) {
+func NewContentStorage(
+	tmpPath string,
+	bucket string,
+	gcpClient interfaces.GCPStorage,
+	copyToLocal bool,
+	localPath string,
+	chownTo int,
+	copyToCloud bool,
+) (*ContentStorage, error) {
 
 	cs := &ContentStorage{
 		tmpPath:       tmpPath,
@@ -71,6 +79,7 @@ func NewContentStorage(tmpPath string, bucket string, gcpClient interfaces.GCPSt
 		bucket:        bucket,
 		storageClient: gcpClient,
 		chownTo:       chownTo,
+		copyToCloud:   copyToCloud,
 	}
 
 	return cs, nil
@@ -83,6 +92,7 @@ type ContentStorage struct {
 	copyToLocal   bool
 	bucket        string
 	chownTo       int
+	copyToCloud   bool
 	storageClient interfaces.GCPStorage
 }
 
@@ -138,12 +148,14 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 		logrus.Debugf("%s -> %s", src, dst)
 	}
 
-	if err := cs.doCloudStore(&ci, itemPath); err != nil {
-		return ci, err
-	}
+	if cs.copyToCloud {
+		if err := cs.doCloudStore(&ci, itemPath); err != nil {
+			return ci, err
+		}
 
-	if err := cs.presign(&ci); err != nil {
-		return ci, err
+		if err := cs.presign(&ci); err != nil {
+			return ci, err
+		}
 	}
 
 	return ci, nil

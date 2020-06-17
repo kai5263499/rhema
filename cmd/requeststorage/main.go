@@ -15,10 +15,11 @@ import (
 type config struct {
 	MQTTBroker                   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
 	MQTTClientID                 string `env:"MQTT_CLIENT_ID" envDefault:"requeststorage"`
-	Bucket                       string `env:"BUCKET"`
 	TmpPath                      string `env:"TMP_PATH" envDefault:"/tmp"`
 	ChownTo                      int    `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel                     string `env:"LOG_LEVEL" envDefault:"info"`
+	CopyToCloud                  bool   `env:"COPY_TO_CLOUD" envDefault:"true"`
+	Bucket                       string `env:"BUCKET"`
 	GoogleApplicationCredentials string `env:"GOOGLE_APPLICATION_CREDENTIALS"`
 	CopyTmpToLocal               bool   `env:"COPY_TMP_TO_LOCAL" envDefault:"true"`
 	LocalPath                    string `env:"LOCAL_PATH" envDefault:"/data"`
@@ -61,7 +62,7 @@ func main() {
 	}
 
 	var newStorageErr error
-	contentStorage, newStorageErr = NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, cfg.CopyTmpToLocal, cfg.LocalPath, cfg.ChownTo)
+	contentStorage, newStorageErr = NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, cfg.CopyTmpToLocal, cfg.LocalPath, cfg.ChownTo, cfg.CopyToCloud)
 	if newStorageErr != nil {
 		logrus.WithError(newStorageErr).Fatal("new storage client")
 	}

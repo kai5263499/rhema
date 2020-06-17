@@ -29,8 +29,8 @@ import (
 )
 
 type config struct {
-	MQTTBroker string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
-	LogLevel   string `env:"LOG_LEVEL" envDefault:"debug"`
+	MQTTBroker string `env:"MQTT_BROKER" envDefault:""`
+	LogLevel   string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 const (
