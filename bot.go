@@ -38,6 +38,7 @@ func NewBot(slackToken string, channels []string, tmpPath string, chownTo int, c
 		channels:   channels,
 		patterns:   make([]botCommand, 0),
 		cache:      cache.New(5*time.Minute, 10*time.Minute),
+		comms:      comms,
 	}
 
 	commands, _ := bot.initPatterns()

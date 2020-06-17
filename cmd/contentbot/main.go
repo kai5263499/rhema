@@ -3,22 +3,21 @@ package main
 import (
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/caarlos0/env"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
 )
 
 type config struct {
-	MQTTBroker string   `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
-	SlackToken string   `env:"SLACK_TOKEN"`
-	Channels   []string `env:"CHANNELS" envDefault:"content"`
-	LogLevel   string   `env:"LOG_LEVEL" envDefault:"info"`
-	TmpPath    string   `env:"TMP_PATH" envDefault:"/tmp"`
-	ChownTo    int      `env:"CHOWN_TO" envDefault:"1000"`
+	MQTTBroker   string   `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTClientID string   `env:"MQTT_CLIENT_ID" envDefault:"contentbot"`
+	SlackToken   string   `env:"SLACK_TOKEN"`
+	Channels     []string `env:"CHANNELS" envDefault:"content"`
+	LogLevel     string   `env:"LOG_LEVEL" envDefault:"info"`
+	TmpPath      string   `env:"TMP_PATH" envDefault:"/tmp"`
+	ChownTo      int      `env:"CHOWN_TO" envDefault:"1000"`
 }
 
 var (
@@ -37,17 +36,10 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	opts := mqtt.NewClientOptions().AddBroker(cfg.MQTTBroker).SetClientID("contentbot")
-	// opts.SetDefaultPublishHandler(mqttMessageHandler)
-	opts.SetKeepAlive(2 * time.Second)
-	opts.SetPingTimeout(1 * time.Second)
-
-	mqttClient := mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		logrus.WithError(token.Error()).Fatal("mqtt new client")
+	mqttComms, newMqttCommsErr := NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
+	if newMqttCommsErr != nil {
+		logrus.WithError(newMqttCommsErr).Fatal("unable to create mqtt comms")
 	}
-
-	mqttComms := NewMqttComms(mqttClient)
 
 	bot := NewBot(cfg.SlackToken, cfg.Channels, cfg.TmpPath, cfg.ChownTo, mqttComms)
 	bot.Start()
