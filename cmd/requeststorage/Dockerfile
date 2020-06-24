@@ -20,6 +20,7 @@ ENV TMP_PATH="/tmp"
 ENV CHOWN_TO="1000"
 ENV GOOGLE_APPLICATION_CREDENTIALS=""
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/requeststorage/deps /
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/requeststorage/requeststorage /requeststorage
 

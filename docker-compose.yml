@@ -1,0 +1,52 @@
+version: '3'
+services:
+  rhema-requestprocessor:
+    environment: 
+      - MQTT_BROKER=tcp://eclipse-mosquitto:1883
+      - DEBUG
+    restart: always
+    volumes: 
+      - tmp-content:/tmp
+    build: 
+      context: .
+      dockerfile: cmd/requestprocessor/Dockerfile
+  rhema-requeststorage:
+    environment: 
+      - MQTT_BROKER=tcp://eclipse-mosquitto:1883
+      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json
+      - BUCKET
+    restart: always
+    volumes:
+      - tmp-content:/tmp
+      - ${LOCAL_PATH}:/data
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json
+    build:
+      context: .
+      dockerfile: cmd/requeststorage/Dockerfile
+  rhema-apiserver:
+    environment: 
+      - MQTT_BROKER=tcp://eclipse-mosquitto:1883
+      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json
+    restart: always
+    volumes:
+      - ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json
+    build:
+      context: .
+      dockerfile: cmd/apiserver/Dockerfile
+    ports:
+      - "8081:8080"
+  rhema-contentbot:
+    environment: 
+      - MQTT_BROKER=tcp://eclipse-mosquitto:1883
+      - SLACK_TOKEN
+      - CHANNELS
+    restart: always
+    build:
+      context: .
+      dockerfile: cmd/contentbot/Dockerfile
+  eclipse-mosquitto:
+    image: "eclipse-mosquitto:latest"
+    restart: always
+volumes:
+  tmp-content:
+  

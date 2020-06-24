@@ -17,6 +17,7 @@ ENV MQTT_CLIENT_ID="apiserver"
 
 EXPOSE 8080
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/apiserver/deps /
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/apiserver/apiserver /apiserver
 
