@@ -14,7 +14,7 @@ import (
 
 type config struct {
 	MQTTBroker                   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
-	MQTTClientID                 string `env:"MQTT_CLIENT_ID" envDefault:"requeststorage"`
+	MQTTClientID                 string `env:"MQTT_CLIENT_ID" envDefault:"storage"`
 	TmpPath                      string `env:"TMP_PATH" envDefault:"/tmp"`
 	ChownTo                      int    `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel                     string `env:"LOG_LEVEL" envDefault:"info"`

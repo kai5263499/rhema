@@ -5,6 +5,7 @@ all-images:
 	docker build -t kai5263499/rhema-bot -f cmd/contentbot/Dockerfile .
 	docker build -t kai5263499/rhema-processor -f cmd/processor/Dockerfile .
 	docker build -t kai5263499/rhema-storage -f cmd/storage/Dockerfile .
+	docker build -t kai5263499/rhema-apiserver -f cmd/apiserver/Dockerfile .
 
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
 go-protos:

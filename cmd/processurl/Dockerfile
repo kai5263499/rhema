@@ -2,9 +2,9 @@ FROM kai5263499/rhema-builder as builder
 
 COPY / /go/src/github.com/kai5263499/rhema
 
-RUN cd /go/src/github.com/kai5263499/rhema/cmd/process_url && \
+RUN cd /go/src/github.com/kai5263499/rhema/cmd/processurl && \
     go build && \
-    ldd process_url | tr -s '[:blank:]' '\n' | grep '^/' | \
+    ldd processurl | tr -s '[:blank:]' '\n' | grep '^/' | \
     xargs -I % sh -c 'mkdir -p $(dirname deps%); cp % deps%;'
 
 FROM scratch
@@ -16,7 +16,7 @@ ENV MQTT_BROKER=""
 ENV MQTT_CLIENT_ID="processurl"
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/process_url/deps /
-COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/process_url/process_url /process_url
+COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/processurl/deps /
+COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/processurl/processurl /processurl
 
-ENTRYPOINT [ "/process_url" ]
+ENTRYPOINT [ "/processurl" ]
