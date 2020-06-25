@@ -4,8 +4,8 @@ cmd/scrape/scrape
 cmd/processurl/processurl
 cmd/contentbot/contentbot
 cmd/apiserver/apiserver
-cmd/requestprocessor/requestprocessor
-cmd/requeststorage/requeststorage
+cmd/processor/processor
+cmd/storage/storage
 
 mosquitto.conf
 environ.rc

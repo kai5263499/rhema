@@ -1,10 +1,10 @@
 all-images:
 	docker build -t kai5263499/rhema-builder .
-	docker build -t kai5263499/rhema-process-url -f cmd/process_url/Dockerfile .
+	docker build -t kai5263499/rhema-process-url -f cmd/processurl/Dockerfile .
 	docker build -t kai5263499/rhema-scrape -f cmd/scrape/Dockerfile .
 	docker build -t kai5263499/rhema-bot -f cmd/contentbot/Dockerfile .
-	docker build -t kai5263499/rhema-requestprocessor -f cmd/requestprocessor/Dockerfile .
-	docker build -t kai5263499/rhema-requeststorage -f cmd/requeststorage/Dockerfile .
+	docker build -t kai5263499/rhema-processor -f cmd/processor/Dockerfile .
+	docker build -t kai5263499/rhema-storage -f cmd/storage/Dockerfile .
 
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
 go-protos:
@@ -41,9 +41,8 @@ build-all:
 	cd cmd/contentbot && go build
 	cd cmd/processurl && go build
 	cd cmd/scrape && go build
-	cd cmd/processurl  && go build
-	cd cmd/requestprocessor && go build
-	cd cmd/requeststorage && go build
+	cd cmd/processor && go build
+	cd cmd/storage && go build
 
 test:
 	go test
