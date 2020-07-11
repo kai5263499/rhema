@@ -11,7 +11,7 @@ import (
 )
 
 type config struct {
-	MQTTBroker            string  `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTBroker            string  `env:"MQTT_BROKER"`
 	MQTTClientID          string  `env:"MQTT_CLIENT_ID" envDefault:"requestprocessor"`
 	MinTextBlockSize      int     `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
 	TmpPath               string  `env:"TMP_PATH" envDefault:"/tmp"`

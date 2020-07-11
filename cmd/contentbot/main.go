@@ -21,8 +21,16 @@ type config struct {
 }
 
 var (
-	cfg config
+	cfg       config
+	bot       *Bot
+	mqttComms *MqttComms
 )
+
+func mqttReadLoop() {
+	for req := range mqttComms.RequestChan() {
+		bot.Process(req)
+	}
+}
 
 func main() {
 	cfg = config{}
@@ -36,12 +44,15 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	mqttComms, newMqttCommsErr := NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
+	var newMqttCommsErr error
+	mqttComms, newMqttCommsErr = NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
 	if newMqttCommsErr != nil {
 		logrus.WithError(newMqttCommsErr).Fatal("unable to create mqtt comms")
 	}
 
-	bot := NewBot(cfg.SlackToken, cfg.Channels, cfg.TmpPath, cfg.ChownTo, mqttComms)
+	go mqttReadLoop()
+
+	bot = NewBot(cfg.SlackToken, cfg.Channels, cfg.TmpPath, cfg.ChownTo, mqttComms)
 	bot.Start()
 
 	c := make(chan os.Signal, 1)

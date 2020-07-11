@@ -229,6 +229,15 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	}
 }
 
+func (b *Bot) Process(ci pb.Request) error {
+	switch ci.Type {
+	case pb.Request_AUDIO:
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s I've processed the audio result", SUCCESS_EMOJI), b.channels[0]))
+	}
+
+	return nil
+}
+
 func (b *Bot) slackReadLoop() {
 	logrus.Debugf("start slack read loop")
 

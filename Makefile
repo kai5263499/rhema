@@ -9,7 +9,7 @@ all-images:
 
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
 go-protos:
-	protoc -I proto/ proto/*.proto --go_out=plugins=grpc:generated
+	protoc -I proto/ proto/*.proto --go_out=generated
 
 # Run an interactive shell for development and testing
 exec-interactive:
