@@ -13,7 +13,7 @@ type titleTest struct {
 }
 
 type extTypeTest struct {
-	extType pb.Request_ContentType
+	extType pb.ContentType_ContentType
 	want    string
 }
 
@@ -40,8 +40,8 @@ var _ = Describe("content_item", func() {
 	})
 	It("Should return the right extension from a given type", func() {
 		tests := []extTypeTest{
-			{extType: pb.Request_TEXT, want: "txt"},
-			{extType: pb.Request_AUDIO, want: "mp3"},
+			{extType: pb.ContentType_TEXT, want: "txt"},
+			{extType: pb.ContentType_AUDIO, want: "mp3"},
 		}
 
 		for _, tc := range tests {
@@ -78,8 +78,8 @@ var _ = Describe("content_item", func() {
 	})
 	It("Should return the right local path", func() {
 		tests := []pathTest{
-			{req: pb.Request{Type: pb.Request_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
-			{req: pb.Request{Type: pb.Request_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
+			{req: pb.Request{Type: pb.ContentType_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
+			{req: pb.Request{Type: pb.ContentType_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
 		}
 
 		for _, tc := range tests {
@@ -90,8 +90,8 @@ var _ = Describe("content_item", func() {
 	})
 	It("Should return the right s3 path", func() {
 		tests := []pathTest{
-			{req: pb.Request{Type: pb.Request_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
-			{req: pb.Request{Type: pb.Request_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
+			{req: pb.Request{Type: pb.ContentType_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
+			{req: pb.Request{Type: pb.ContentType_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
 		}
 
 		for _, tc := range tests {

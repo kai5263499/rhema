@@ -69,7 +69,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 
 	contentRequest := pb.Request{
 		Uri:         uri,
-		Type:        pb.Request_URI,
+		Type:        pb.ContentType_URI,
 		Title:       newUUID.String(),
 		SubmittedBy: user.Name,
 		SubmittedAt: uint64(time.Now().UTC().Unix()),
@@ -214,7 +214,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 		ci := pb.Request{
 			Uri:         file.URLPrivate,
 			Title:       file.Title,
-			Type:        pb.Request_TEXT,
+			Type:        pb.ContentType_TEXT,
 			Text:        bodyStr,
 			SubmittedBy: ev.File.User,
 			Created:     uint64(time.Now().UTC().Unix()),
@@ -231,7 +231,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 
 func (b *Bot) Process(ci pb.Request) error {
 	switch ci.Type {
-	case pb.Request_AUDIO:
+	case pb.ContentType_AUDIO:
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s I've processed the audio result", SUCCESS_EMOJI), b.channels[0]))
 	}
 

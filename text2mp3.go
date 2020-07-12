@@ -36,7 +36,7 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 
 	logrus.Debugf("converting text2mp3\n")
 
-	if ci.Type != pb.Request_TEXT {
+	if ci.Type != pb.ContentType_TEXT {
 		return ci, fmt.Errorf("Invalid request type %s", ci.Type.String())
 	}
 
@@ -51,7 +51,7 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 
 	txtFullFilename := filepath.Join(tm.localPath, txtFilename)
 
-	ci.Type = pb.Request_AUDIO
+	ci.Type = pb.ContentType_AUDIO
 
 	mp3Filename, err := GetFilePath(ci)
 	if err != nil {

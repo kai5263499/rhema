@@ -23,7 +23,7 @@ type rpTest struct {
 
 type rpUriTest struct {
 	uri          string
-	expectedType pb.Request_ContentType
+	expectedType pb.ContentType_ContentType
 }
 
 var processRPCmdInput func(args []string) (string, int)
@@ -85,7 +85,7 @@ var _ = Describe("request_processor", func() {
 
 		ci := pb.Request{
 			Created:     383576400,
-			Type:        pb.Request_URI,
+			Type:        pb.ContentType_URI,
 			Title:       newUUID.String(),
 			RequestHash: "DEADBEEF",
 			Uri:         ts.URL,
@@ -93,18 +93,18 @@ var _ = Describe("request_processor", func() {
 
 		requestResult, err := rp.Process(ci)
 		Expect(err).To(BeNil())
-		Expect(requestResult.Type).To(Equal(pb.Request_AUDIO))
+		Expect(requestResult.Type).To(Equal(pb.ContentType_AUDIO))
 	})
 
 	It("Should parse the right type from a URI", func() {
 		tests := []rpUriTest{
 			{
 				uri:          "http://something.com/my_podcast.mp3",
-				expectedType: pb.Request_AUDIO,
+				expectedType: pb.ContentType_AUDIO,
 			},
 			{
 				uri:          "http://something.com/my_podcast.mp3?this=is&some=parameter&trash=bad",
-				expectedType: pb.Request_AUDIO,
+				expectedType: pb.ContentType_AUDIO,
 			},
 		}
 

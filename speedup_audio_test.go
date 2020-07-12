@@ -67,7 +67,7 @@ var _ = Describe("speedup_audio", func() {
 
 		ci := pb.Request{
 			Created: 383576400,
-			Type:    pb.Request_AUDIO,
+			Type:    pb.ContentType_AUDIO,
 			Title:   newUUID.String(),
 			Length:  uint64(len(requestContent)),
 			Text:    requestContent,
@@ -90,6 +90,6 @@ var _ = Describe("speedup_audio", func() {
 
 		audioRequest, err := tm.Convert(ci)
 		Expect(err).To(BeNil())
-		Expect(audioRequest.Type).To(Equal(pb.Request_AUDIO))
+		Expect(audioRequest.Type).To(Equal(pb.ContentType_AUDIO))
 	})
 })

@@ -68,7 +68,7 @@ var _ = Describe("text2mp3", func() {
 
 		ci := pb.Request{
 			Created: 383576400,
-			Type:    pb.Request_TEXT,
+			Type:    pb.ContentType_TEXT,
 			Title:   newUUID.String(),
 			Length:  uint64(len(requestContent)),
 			Text:    requestContent,
@@ -79,11 +79,11 @@ var _ = Describe("text2mp3", func() {
 
 		txtFullFilename := filepath.Join(tm.localPath, txtFilename)
 
-		ci.Type = pb.Request_AUDIO
+		ci.Type = pb.ContentType_AUDIO
 		mp3FileName, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		ci.Type = pb.Request_TEXT
+		ci.Type = pb.ContentType_TEXT
 
 		mp3FullFilename := filepath.Join(tm.localPath, mp3FileName)
 		wavFullFilename := fmt.Sprintf("%s%s", mp3FullFilename[:len(mp3FullFilename)-3], "wav")
@@ -108,7 +108,7 @@ var _ = Describe("text2mp3", func() {
 
 		audioRequest, err := tm.Convert(ci)
 		Expect(err).To(BeNil())
-		Expect(audioRequest.Type).To(Equal(pb.Request_AUDIO))
+		Expect(audioRequest.Type).To(Equal(pb.ContentType_AUDIO))
 
 		err = os.Remove(txtFullFilename)
 		Expect(err).To(BeNil())

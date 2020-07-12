@@ -98,7 +98,7 @@ func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
 		}
 	}
 
-	ci.Type = pb.Request_TEXT
+	ci.Type = pb.ContentType_TEXT
 
 	createdTime := time.Now()
 	ci.Created = uint64(createdTime.Unix())

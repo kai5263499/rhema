@@ -49,7 +49,7 @@ func main() {
 
 		req := pb.Request{
 			Title:       newUUID.String(),
-			Type:        pb.Request_URI,
+			Type:        pb.ContentType_URI,
 			Created:     uint64(time.Now().Unix()),
 			Uri:         arg,
 			RequestHash: newUUID.String(),

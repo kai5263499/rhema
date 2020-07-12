@@ -126,7 +126,7 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 
-	if cs.copyToLocal && ci.Type == pb.Request_AUDIO {
+	if cs.copyToLocal && ci.Type == pb.ContentType_AUDIO {
 		src := filepath.Join(cs.tmpPath, itemPath)
 		dst := filepath.Join(cs.localPath, filepath.Base(itemPath))
 

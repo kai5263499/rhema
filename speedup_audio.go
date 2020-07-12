@@ -49,7 +49,7 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 	}
 	ffmpegCmd.Wait()
 
-	ci.Type = pb.Request_AUDIO
+	ci.Type = pb.ContentType_AUDIO
 	mp3FileName, err := GetFilePath(ci)
 	if err != nil {
 		return ci, err

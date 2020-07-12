@@ -34,7 +34,7 @@ var _ = Describe("scrape", func() {
 
 		ci := pb.Request{
 			Created: 383576400,
-			Type:    pb.Request_URI,
+			Type:    pb.ContentType_URI,
 			Uri:     ts.URL,
 			Title:   "my title",
 		}
@@ -53,13 +53,13 @@ var _ = Describe("scrape", func() {
 				request: pb.Request{
 					Created:     383576400,
 					RequestHash: "ABC123",
-					Type:        pb.Request_URI,
+					Type:        pb.ContentType_URI,
 				},
 				dataFilename: "testdata/ito.html",
 				wanted: pb.Request{
 					Created:     383576400,
 					RequestHash: "ABC123",
-					Type:        pb.Request_TEXT,
+					Type:        pb.ContentType_TEXT,
 					Title:       "Frozen II: Saved by Blessedly Superficial Viewers",
 					Text:        "someText",
 				},

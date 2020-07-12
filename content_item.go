@@ -25,13 +25,13 @@ func cleanTitle(title string) string {
 	return titleCleaningRegexp.ReplaceAllString(strings.Replace(title, " ", "_", -1), "")
 }
 
-func getExtFromType(contentType pb.Request_ContentType) (string, error) {
+func getExtFromType(contentType pb.ContentType) (string, error) {
 	switch contentType {
-	case pb.Request_URI:
+	case pb.ContentType_URI:
 		return "uri", nil
-	case pb.Request_AUDIO:
+	case pb.ContentType_AUDIO:
 		return "mp3", nil
-	case pb.Request_TEXT:
+	case pb.ContentType_TEXT:
 		return "txt", nil
 	default:
 		return "", fmt.Errorf("unknown extension for type %v", contentType)

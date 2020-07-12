@@ -11,7 +11,7 @@ func (f *fakeContentStore) SetConfig(k string, v string) bool       { return fal
 type audioConverter struct{}
 
 func (f *audioConverter) Convert(ci pb.Request) (pb.Request, error) {
-	ci.Type = pb.Request_AUDIO
+	ci.Type = pb.ContentType_AUDIO
 	return ci, nil
 }
 func (c *audioConverter) GetConfig(k string) (bool, string) { return false, "" }
@@ -20,7 +20,7 @@ func (c *audioConverter) SetConfig(k string, v string) bool { return false }
 type textConverter struct{}
 
 func (f *textConverter) Convert(ci pb.Request) (pb.Request, error) {
-	ci.Type = pb.Request_TEXT
+	ci.Type = pb.ContentType_TEXT
 	return ci, nil
 }
 func (f *textConverter) GetConfig(k string) (bool, string) { return false, "" }
@@ -29,7 +29,7 @@ func (f *textConverter) SetConfig(k string, v string) bool { return false }
 type youtubeConverter struct{}
 
 func (f *youtubeConverter) Convert(ci pb.Request) (pb.Request, error) {
-	ci.Type = pb.Request_YOUTUBE
+	ci.Type = pb.ContentType_YOUTUBE
 	return ci, nil
 }
 func (f *youtubeConverter) GetConfig(k string) (bool, string) { return false, "" }
@@ -38,7 +38,7 @@ func (f *youtubeConverter) SetConfig(k string, v string) bool { return false }
 type videoConverter struct{}
 
 func (f *videoConverter) Convert(ci pb.Request) (pb.Request, error) {
-	ci.Type = pb.Request_VIDEO
+	ci.Type = pb.ContentType_VIDEO
 	return ci, nil
 }
 func (f *videoConverter) GetConfig(k string) (bool, string) { return false, "" }

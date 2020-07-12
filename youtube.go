@@ -45,7 +45,7 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 		}
 	}
 
-	ci.Type = pb.Request_AUDIO
+	ci.Type = pb.ContentType_AUDIO
 	fileName, err := GetFilePath(ci)
 	if err != nil {
 		return ci, err

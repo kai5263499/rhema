@@ -68,7 +68,7 @@ var _ = Describe("youtube", func() {
 
 		ci := pb.Request{
 			Created:     383576400,
-			Type:        pb.Request_AUDIO,
+			Type:        pb.ContentType_AUDIO,
 			Title:       newUUID.String(),
 			RequestHash: "DEADBEEF",
 			Length:      uint64(len(requestContent)),
@@ -96,7 +96,7 @@ var _ = Describe("youtube", func() {
 
 		audioRequest, err := yt.Convert(ci)
 		Expect(err).To(BeNil())
-		Expect(audioRequest.Type).To(Equal(pb.Request_AUDIO))
+		Expect(audioRequest.Type).To(Equal(pb.ContentType_AUDIO))
 		Expect(audioRequest.RequestHash).To(Equal(ci.RequestHash))
 
 		err = os.Remove(tmpFilename)

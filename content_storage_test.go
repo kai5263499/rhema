@@ -35,7 +35,7 @@ var _ = Describe("content_storage", func() {
 
 		ci := pb.Request{
 			Created: 383576400,
-			Type:    pb.Request_TEXT,
+			Type:    pb.ContentType_TEXT,
 			Title:   newUUID.String(),
 			Length:  uint64(len(requestContent)),
 			Text:    requestContent,

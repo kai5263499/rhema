@@ -128,9 +128,9 @@ func createRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if request.Text != "" {
-		request.Type = pb.Request_TEXT
+		request.Type = pb.ContentType_TEXT
 	} else if request.Uri != "" {
-		request.Type = pb.Request_URI
+		request.Type = pb.ContentType_URI
 		request.Title = newUUID.String()
 	}
 

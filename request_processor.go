@@ -36,25 +36,25 @@ type RequestProcessor struct {
 	comms            domain.Comms
 }
 
-func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.Request_ContentType {
+func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.ContentType {
 	if strings.Contains(requestUri, "youtu.be") ||
 		strings.Contains(requestUri, "www.youtube.com") ||
 		strings.Contains(requestUri, "facebook.com") ||
 		strings.Contains(requestUri, "vimeo.com") {
 		if strings.Contains(requestUri, "playlist") {
-			return pb.Request_YOUTUBE_LIST
+			return pb.ContentType_YOUTUBE_LIST
 		} else {
-			return pb.Request_YOUTUBE
+			return pb.ContentType_YOUTUBE
 		}
 	} else if strings.Contains(requestUri, ".mp3") {
-		return pb.Request_AUDIO
+		return pb.ContentType_AUDIO
 	} else if strings.Contains(requestUri, ".mp4") {
-		return pb.Request_VIDEO
+		return pb.ContentType_VIDEO
 	} else if strings.Contains(requestUri, ".pdf") {
-		return pb.Request_PDF
+		return pb.ContentType_PDF
 	}
 
-	return pb.Request_TEXT
+	return pb.ContentType_TEXT
 }
 
 func (rp *RequestProcessor) downloadUri(ci pb.Request) error {
@@ -79,7 +79,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	var ci2 pb.Request
 	var ci3 pb.Request
 
-	if ci.Type == pb.Request_URI {
+	if ci.Type == pb.ContentType_URI {
 		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 
 		parsedTitle, err := parseTitleFromUri(ci.Uri)
@@ -117,7 +117,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	}).Infof("processing")
 
 	switch ci.Type {
-	case pb.Request_YOUTUBE:
+	case pb.ContentType_YOUTUBE:
 		ci2, err = rp.youtube.Convert(ci)
 		if err != nil {
 			logrus.WithError(err).Errorf("error with youtube")
@@ -133,7 +133,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		rp.comms.SendRequest(ci3)
 
 		return ci3, nil
-	case pb.Request_TEXT:
+	case pb.ContentType_TEXT:
 		if len(ci.Text) < 1 {
 			ci2, err = rp.scrape.Convert(ci)
 			if err != nil {
@@ -153,7 +153,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		rp.comms.SendRequest(ci3)
 
 		return ci3, nil
-	case pb.Request_AUDIO:
+	case pb.ContentType_AUDIO:
 		err = rp.downloadUri(ci)
 		if err != nil {
 			logrus.WithError(err).Errorf("error downloading audio uri")
@@ -169,7 +169,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		rp.comms.SendRequest(ci2)
 
 		return ci2, nil
-	case pb.Request_VIDEO:
+	case pb.ContentType_VIDEO:
 		err = rp.downloadUri(ci)
 		if err != nil {
 			logrus.WithError(err).Errorf("error downloading video uri")
