@@ -20,8 +20,8 @@ require (
 	github.com/kai5263499/glossa v0.0.0-20200102023718-cc101fbbe34e
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/olivere/elastic/v7 v7.0.15
-	github.com/onsi/ginkgo v1.11.0
-	github.com/onsi/gomega v1.8.1
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/slack-go/slack v0.6.5
@@ -34,8 +34,6 @@ require (
 	golang.org/x/tools v0.0.0-20200609164405-eb789aa7ce50 // indirect
 	google.golang.org/api v0.25.0 // indirect
 	google.golang.org/genproto v0.0.0-20200521103424-e9a78aa275b7 // indirect
-	google.golang.org/grpc v1.29.1
 	google.golang.org/protobuf v1.23.0
-	gopkg.in/yaml.v2 v2.3.0 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 )

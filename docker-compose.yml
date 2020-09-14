@@ -51,6 +51,11 @@ services:
   mqtt:
     image: "eclipse-mosquitto:latest"
     restart: always
+  redisgraph:
+    image: "redislabs/redisgraph"
+    restart: always
+    ports:
+      - "6379:6379"
 volumes:
   tmp-content:
   

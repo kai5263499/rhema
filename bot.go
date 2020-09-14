@@ -81,7 +81,7 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request for processing `%s` err=%+#v", FAILURE_EMOJI, user.Name, uri, err), channel))
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"uri": uri,
-		}).Errorf("send request")
+		}).Error("send request")
 		return
 	}
 }
@@ -145,7 +145,7 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 func (b *Bot) processUploadRequest(ci pb.Request, user *slack.User, channel string) {
 	if err := b.comms.SendRequest(ci); err != nil {
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request to the processor err=%+#v", FAILURE_EMOJI, user.Name, err), channel))
-		logrus.WithError(err).Errorf("send request")
+		logrus.WithError(err).Error("send request")
 		return
 	}
 
@@ -168,7 +168,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"fileId": ev.File.ID,
-		}).Errorf("error getting file info")
+		}).Error("error getting file info")
 		return
 	}
 
@@ -180,7 +180,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"fileId": ev.File.ID,
-		}).Errorf("error getting file info")
+		}).Error("error getting file info")
 		return
 	}
 
@@ -239,7 +239,7 @@ func (b *Bot) Process(ci pb.Request) error {
 }
 
 func (b *Bot) slackReadLoop() {
-	logrus.Debugf("start slack read loop")
+	logrus.Debug("start slack read loop")
 
 	for {
 		select {
@@ -250,15 +250,15 @@ func (b *Bot) slackReadLoop() {
 			case *slack.ConnectedEvent:
 				logrus.Infof("Connection counter: %d", ev.ConnectionCount)
 			case *slack.MessageEvent:
-				logrus.Debugf("message event received!")
+				logrus.Debug("message event received!")
 				go b.processMessage(ev)
 			case *slack.FileSharedEvent:
-				logrus.Debugf("file shared event recieved!")
+				logrus.Debug("file shared event recieved!")
 				go b.processFileUpload(ev)
 			case *slack.RTMError:
 				logrus.Errorf("RTMError: %s", ev.Error())
 			case *slack.InvalidAuthEvent:
-				logrus.Errorf("Invalid credentials!")
+				logrus.Error("Invalid credentials!")
 				return
 			default:
 				//Take no action
@@ -286,7 +286,7 @@ func (b *Bot) joinChannels() {
 }
 
 func (b *Bot) Start() {
-	logrus.Debugf("connecting to slack")
+	logrus.Debug("connecting to slack")
 
 	b.api = slack.New(
 		b.slackToken,
