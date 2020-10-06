@@ -9,3 +9,5 @@ cmd/storage/storage
 
 mosquitto.conf
 environ.rc
+
+redis-backup
