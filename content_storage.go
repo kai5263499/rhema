@@ -11,10 +11,12 @@ import (
 
 	"cloud.google.com/go/storage"
 	pb "github.com/kai5263499/rhema/generated"
+	"github.com/kai5263499/rhema/interfaces"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2/google"
 
-	"github.com/kai5263499/rhema/interfaces"
+	"github.com/gomodule/redigo/redis"
+	rg "github.com/redislabs/redisgraph-go"
 )
 
 const (
@@ -70,7 +72,11 @@ func NewContentStorage(
 	localPath string,
 	chownTo int,
 	copyToCloud bool,
+	redisConn *redis.Conn,
+	redisGraphKey string,
 ) (*ContentStorage, error) {
+
+	redisGraph := rg.GraphNew(redisGraphKey, *redisConn)
 
 	cs := &ContentStorage{
 		tmpPath:       tmpPath,
@@ -80,6 +86,9 @@ func NewContentStorage(
 		storageClient: gcpClient,
 		chownTo:       chownTo,
 		copyToCloud:   copyToCloud,
+		redisConn:     redisConn,
+		redisGraph:    &redisGraph,
+		redisGraphKey: redisGraphKey,
 	}
 
 	return cs, nil
@@ -94,6 +103,9 @@ type ContentStorage struct {
 	chownTo       int
 	copyToCloud   bool
 	storageClient interfaces.GCPStorage
+	redisConn     *redis.Conn
+	redisGraph    *rg.Graph
+	redisGraphKey string
 }
 
 func copyFileContents(src, dst string) error {
@@ -121,8 +133,11 @@ func copyFileContents(src, dst string) error {
 
 // Store persists a content item in S3
 func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
+	logrus.Debugf("storing content item %+#v", cs)
+
 	itemPath, err := getPath(ci)
 	if err != nil {
+		logrus.WithError(err).Error("unable to get path")
 		return ci, err
 	}
 
@@ -148,17 +163,70 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 		logrus.Debugf("%s -> %s", src, dst)
 	}
 
-	if cs.copyToCloud {
+	// Only store audio content
+	if cs.copyToCloud && ci.Type == pb.ContentType_AUDIO {
+		logrus.Debugf("doCloudStore %s", itemPath)
 		if err := cs.doCloudStore(&ci, itemPath); err != nil {
+			logrus.WithError(err).Error("unable to doCloudStore")
 			return ci, err
 		}
 
 		if err := cs.presign(&ci); err != nil {
+			logrus.WithError(err).Error("unable to presign")
 			return ci, err
 		}
 	}
 
+	if err := cs.addGraphEntries(&ci); err != nil {
+		logrus.WithError(err).Error("unable to add graph entries")
+		return ci, err
+	}
+
 	return ci, nil
+}
+
+func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
+	contentNode := rg.Node{
+		Label: "content",
+		Properties: map[string]interface{}{
+			"downloadURI": ci.DownloadURI,
+			"type":        ci.Type.String(),
+			"size":        int(ci.Size),
+			"length":      int(ci.Length),
+			"uri":         ci.Uri,
+			"wpm":         int(ci.WordsPerMinute),
+			"espeakvoice": ci.ESpeakVoice,
+			"atempo":      int(ci.ATempo),
+			"text":        ci.Text,
+			"requesthash": ci.RequestHash,
+		},
+	}
+	cs.redisGraph.AddNode(&contentNode)
+
+	submitter := rg.Node{
+		Label: "actor",
+		Properties: map[string]interface{}{
+			"submittedBy": ci.SubmittedBy,
+		},
+	}
+	cs.redisGraph.AddNode(&submitter)
+
+	edge := rg.Edge{
+		Source:      &submitter,
+		Relation:    "submitted",
+		Destination: &contentNode,
+		Properties: map[string]interface{}{
+			"submittedat": int(ci.SubmittedAt),
+			"created":     int(ci.Created),
+		},
+	}
+	cs.redisGraph.AddEdge(&edge)
+
+	if _, err := cs.redisGraph.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cs *ContentStorage) presign(ci *pb.Request) error {
@@ -233,6 +301,7 @@ func (cs *ContentStorage) doCloudStore(ci *pb.Request, path string) error {
 		logrus.WithError(err).Errorf("unable to copy file to bucket")
 		return err
 	}
+
 	if err := wc.Close(); err != nil {
 		logrus.WithError(err).Errorf("unable to close bucket writer")
 		return err

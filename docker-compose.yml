@@ -1,20 +1,21 @@
 version: '3'
 services:
-  processor:
-    environment: 
-      - MQTT_BROKER=tcp://mqtt:1883
-      - DEBUG
-    restart: always
-    volumes: 
-      - tmp-content:/tmp
-    image: "kai5263499/rhema-processor:latest"
-    build: 
-      context: .
-      dockerfile: cmd/processor/Dockerfile
+  # processor:
+  #   environment: 
+  #     - MQTT_BROKER=tcp://mqtt:1883
+  #     - DEBUG
+  #   restart: always
+  #   volumes: 
+  #     - tmp-content:/tmp
+  #   image: "kai5263499/rhema-processor:latest"
+  #   build: 
+  #     context: .
+  #     dockerfile: cmd/processor/Dockerfile
 #  storage:
 #    environment: 
 #      - MQTT_BROKER=tcp://mqtt:1883
 #      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json
+#      - REDIS_HOST=redisgraph
 #      - BUCKET
 #    restart: always
 #    volumes:

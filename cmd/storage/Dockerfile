@@ -19,6 +19,9 @@ ENV LOCAL_PATH="/data"
 ENV TMP_PATH="/tmp"
 ENV CHOWN_TO="1000"
 ENV GOOGLE_APPLICATION_CREDENTIALS=""
+ENV REDIS_HOST=""
+ENV REDIS_PORT="6379"
+ENV REDIS_GRAPH_KEY="rhema-content"
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/storage/deps /

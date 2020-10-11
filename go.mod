@@ -9,20 +9,26 @@ require (
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/davecgh/go-spew v1.1.1
 	github.com/eclipse/paho.mqtt.golang v1.2.0
+	github.com/fatih/structs v1.1.0
 	github.com/go-openapi/spec v0.19.8 // indirect
 	github.com/go-openapi/swag v0.19.9 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/protobuf v1.4.2
+	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/headzoo/surf v1.0.0
 	github.com/headzoo/ut v0.0.0-20181013193318-a13b5a7a02ca // indirect
 	github.com/kai5263499/glossa v0.0.0-20200102023718-cc101fbbe34e
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/olivere/elastic/v7 v7.0.15
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/redislabs/redisgraph-go v2.0.2+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/slack-go/slack v0.6.5
 	github.com/swaggo/http-swagger v0.0.0-20200308142732-58ac5e232fba
