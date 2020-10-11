@@ -23,7 +23,7 @@ func (c *placeholderGCPClient) Bucket(name string) *storage.BucketHandle {
 }
 
 var _ = Describe("content_storage", func() {
-	PIt("Should store the text file in S3", func() {
+	PIt("Should store the text file in GCP", func() {
 		var err error
 
 		cs, err := NewContentStorage("/tmp", "my-bucket", &placeholderGCPClient{})

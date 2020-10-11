@@ -45,6 +45,7 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 		"-c:a", "libmp3lame", "-q:a", "4", tmpFullFilename)
 
 	if err := ffmpegCmd.Run(); err != nil {
+		logrus.WithError(err).Errorf("error running ffmpeg")
 		return ci, err
 	}
 	ffmpegCmd.Wait()

@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 
 	"cloud.google.com/go/storage"
 	"github.com/caarlos0/env"
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
 )
 
 type config struct {
-	MQTTBroker                   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTBroker                   string `env:"MQTT_BROKER"`
 	MQTTClientID                 string `env:"MQTT_CLIENT_ID" envDefault:"storage"`
 	TmpPath                      string `env:"TMP_PATH" envDefault:"/tmp"`
 	ChownTo                      int    `env:"CHOWN_TO" envDefault:"1000"`
@@ -23,6 +25,9 @@ type config struct {
 	GoogleApplicationCredentials string `env:"GOOGLE_APPLICATION_CREDENTIALS"`
 	CopyTmpToLocal               bool   `env:"COPY_TMP_TO_LOCAL" envDefault:"true"`
 	LocalPath                    string `env:"LOCAL_PATH" envDefault:"/data"`
+	RedisHost                    string `env:"REDIS_HOST"`
+	RedisPort                    string `env:"REDIS_PORT" envDefault:"6379"`
+	RedisGraphKey                string `env:"REDIS_GRAPH_KEY" envDefault:"rhema-content"`
 }
 
 var (
@@ -61,8 +66,15 @@ func main() {
 		logrus.WithError(newGCPStorageErr).Fatal("new gcp storage client")
 	}
 
+	redisConnStr := fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort)
+	logrus.Debugf("connecting to redis %s", redisConnStr)
+	redisConn, redisConnErr := redis.Dial("tcp", redisConnStr)
+	if redisConnErr != nil {
+		logrus.WithError(redisConnErr).Fatal("unable to connect to redis")
+	}
+
 	var newStorageErr error
-	contentStorage, newStorageErr = NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, cfg.CopyTmpToLocal, cfg.LocalPath, cfg.ChownTo, cfg.CopyToCloud)
+	contentStorage, newStorageErr = NewContentStorage(cfg.TmpPath, cfg.Bucket, gcpClient, cfg.CopyTmpToLocal, cfg.LocalPath, cfg.ChownTo, cfg.CopyToCloud, &redisConn, cfg.RedisGraphKey)
 	if newStorageErr != nil {
 		logrus.WithError(newStorageErr).Fatal("new storage client")
 	}
