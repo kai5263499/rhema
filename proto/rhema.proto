@@ -27,7 +27,8 @@ message Request {
     string DownloadURI = 12;
     uint32 WordsPerMinute = 13;
     string ESpeakVoice = 14;
-    uint32 ATempo = 15;
+    string ATempo = 15;
+    string SubmittedWith = 16;
 }
 
 enum ResponseCode {

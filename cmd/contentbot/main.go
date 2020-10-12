@@ -11,13 +11,17 @@ import (
 )
 
 type config struct {
-	MQTTBroker   string   `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
-	MQTTClientID string   `env:"MQTT_CLIENT_ID" envDefault:"contentbot"`
-	SlackToken   string   `env:"SLACK_TOKEN"`
-	Channels     []string `env:"CHANNELS" envDefault:"content"`
-	LogLevel     string   `env:"LOG_LEVEL" envDefault:"info"`
-	TmpPath      string   `env:"TMP_PATH" envDefault:"/tmp"`
-	ChownTo      int      `env:"CHOWN_TO" envDefault:"1000"`
+	MQTTBroker     string   `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTClientID   string   `env:"MQTT_CLIENT_ID" envDefault:"contentbot"`
+	SlackToken     string   `env:"SLACK_TOKEN"`
+	SubmittedWith  string   `env:"SUBMITTED_With" envDefault:"contentbot"`
+	Channels       []string `env:"CHANNELS" envDefault:"content"`
+	LogLevel       string   `env:"LOG_LEVEL" envDefault:"info"`
+	TmpPath        string   `env:"TMP_PATH" envDefault:"/tmp"`
+	ChownTo        int      `env:"CHOWN_TO" envDefault:"1000"`
+	ATempo         string   `env:"ATEMPO" envDefault:"2.0"`
+	WordsPerMinute int      `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	ESpeakVoice    string   `env:"ESPEAK_VOICE" envDefault:"f5"`
 }
 
 var (
@@ -52,7 +56,7 @@ func main() {
 
 	go mqttReadLoop()
 
-	bot = NewBot(cfg.SlackToken, cfg.Channels, cfg.TmpPath, cfg.ChownTo, mqttComms)
+	bot = NewBot(cfg.SlackToken, cfg.Channels, cfg.TmpPath, cfg.ChownTo, mqttComms, cfg.ATempo, cfg.WordsPerMinute, cfg.ESpeakVoice, cfg.SubmittedWith)
 	bot.Start()
 
 	c := make(chan os.Signal, 1)

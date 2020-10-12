@@ -28,17 +28,21 @@ type botCommand struct {
 	pattern glossa.Pattern
 }
 
-func NewBot(slackToken string, channels []string, tmpPath string, chownTo int, comms domain.Comms) *Bot {
+func NewBot(slackToken string, channels []string, tmpPath string, chownTo int, comms domain.Comms, atempo string, wpm int, espeakvoice string, submittedwith string) *Bot {
 	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
 
 	bot := &Bot{
-		slackToken: slackToken,
-		tmpPath:    tmpPath,
-		chownTo:    chownTo,
-		channels:   channels,
-		patterns:   make([]botCommand, 0),
-		cache:      cache.New(5*time.Minute, 10*time.Minute),
-		comms:      comms,
+		slackToken:     slackToken,
+		tmpPath:        tmpPath,
+		chownTo:        chownTo,
+		channels:       channels,
+		patterns:       make([]botCommand, 0),
+		cache:          cache.New(5*time.Minute, 10*time.Minute),
+		comms:          comms,
+		atempo:         atempo,
+		wordsperminute: wpm,
+		espeakvoice:    espeakvoice,
+		submittedwith:  submittedwith,
 	}
 
 	commands, _ := bot.initPatterns()
@@ -52,29 +56,37 @@ var (
 )
 
 type Bot struct {
-	api           *slack.Client
-	rtm           *slack.RTM
-	slackToken    string
-	channels      []string
-	slackChannels []*slack.Channel
-	patterns      []botCommand
-	cache         *cache.Cache
-	tmpPath       string
-	chownTo       int
-	comms         domain.Comms
+	api            *slack.Client
+	rtm            *slack.RTM
+	slackToken     string
+	channels       []string
+	slackChannels  []*slack.Channel
+	patterns       []botCommand
+	cache          *cache.Cache
+	tmpPath        string
+	chownTo        int
+	comms          domain.Comms
+	atempo         string
+	wordsperminute int
+	espeakvoice    string
+	submittedwith  string
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
 	newUUID := uuid.Must(uuid.NewV4())
 
 	contentRequest := pb.Request{
-		Uri:         uri,
-		Type:        pb.ContentType_URI,
-		Title:       newUUID.String(),
-		SubmittedBy: user.Name,
-		SubmittedAt: uint64(time.Now().UTC().Unix()),
-		Created:     uint64(time.Now().UTC().Unix()),
-		RequestHash: newUUID.String(),
+		Uri:            uri,
+		Type:           pb.ContentType_URI,
+		Title:          newUUID.String(),
+		SubmittedBy:    user.Name,
+		SubmittedAt:    uint64(time.Now().UTC().Unix()),
+		Created:        uint64(time.Now().UTC().Unix()),
+		RequestHash:    newUUID.String(),
+		SubmittedWith:  b.submittedwith,
+		ATempo:         b.atempo,
+		WordsPerMinute: uint32(b.wordsperminute),
+		ESpeakVoice:    b.espeakvoice,
 	}
 
 	if err := b.comms.SendRequest(contentRequest); err != nil {

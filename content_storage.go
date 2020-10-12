@@ -196,7 +196,7 @@ func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
 			"uri":         ci.Uri,
 			"wpm":         int(ci.WordsPerMinute),
 			"espeakvoice": ci.ESpeakVoice,
-			"atempo":      int(ci.ATempo),
+			"atempo":      ci.ATempo,
 			"text":        ci.Text,
 			"requesthash": ci.RequestHash,
 		},
@@ -216,8 +216,9 @@ func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
 		Relation:    "submitted",
 		Destination: &contentNode,
 		Properties: map[string]interface{}{
-			"submittedat": int(ci.SubmittedAt),
-			"created":     int(ci.Created),
+			"submittedat":   int(ci.SubmittedAt),
+			"submittedwith": ci.SubmittedWith,
+			"created":       int(ci.Created),
 		},
 	}
 	cs.redisGraph.AddEdge(&edge)
