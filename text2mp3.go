@@ -73,8 +73,16 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 
-	logrus.Debugf("running tts command with wavFilename=%s txtFilename=%s\n", wavFullFilename, txtFullFilename)
-	ttsCmd := tm.execCommand("espeak-ng", "-v", tm.espeakVoice, "-s", fmt.Sprintf("%d", tm.wordsPerMinute), "-m", "-w", wavFullFilename, "-f", txtFullFilename)
+	if ci.WordsPerMinute == 0 {
+		ci.WordsPerMinute = uint32(tm.wordsPerMinute)
+	}
+
+	if len(ci.ESpeakVoice) == 0 {
+		ci.ESpeakVoice = tm.espeakVoice
+	}
+
+	ttsCmd := tm.execCommand("espeak-ng", "-v", ci.ESpeakVoice, "-s", fmt.Sprintf("%d", ci.WordsPerMinute), "-m", "-w", wavFullFilename, "-f", txtFullFilename)
+	logrus.Debugf("running tts command %s", ttsCmd)
 	if err := ttsCmd.Run(); err != nil {
 		return ci, err
 	}
@@ -82,8 +90,8 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 	ttsCmd.Stderr = os.Stderr
 	ttsCmd.Wait()
 
-	logrus.Debugf("running lame command with wavFilename=%s mp3Filename=%s\n", wavFullFilename, mp3FullFilename)
 	lameCmd := tm.execCommand("lame", "-S", "-m", "m", wavFullFilename, mp3FullFilename)
+	logrus.Debugf("running lame command %s", lameCmd)
 	if err := lameCmd.Run(); err != nil {
 		return ci, err
 	}

@@ -12,10 +12,14 @@ import (
 )
 
 type config struct {
-	MQTTBroker   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
-	MQTTClientID string `env:"MQTT_CLIENT_ID" envDefault:"processurl"`
-	LogLevel     string `env:"LOG_LEVEL" envDefault:"info"`
-	SubmittedBy  string `env:"SUBMITTED_BY" envDefault:"kai5263499@gmail.com"`
+	MQTTBroker     string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
+	MQTTClientID   string `env:"MQTT_CLIENT_ID" envDefault:"processurl"`
+	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
+	SubmittedBy    string `env:"SUBMITTED_BY" envDefault:"kai5263499@gmail.com"`
+	SubmittedWith  string `env:"SUBMITTED_With" envDefault:"processurl"`
+	ATempo         string `env:"ATEMPO" envDefault:"2.0"`
+	WordsPerMinute int    `env:"WORDS_PER_MINUTE" envDefault:"350"`
+	ESpeakVoice    string `env:"ESPEAK_VOICE" envDefault:"f5"`
 }
 
 var (
@@ -43,13 +47,17 @@ func main() {
 		newUUID := uuid.Must(uuid.NewV4())
 
 		req := pb.Request{
-			Title:       newUUID.String(),
-			Type:        pb.ContentType_URI,
-			Created:     uint64(time.Now().Unix()),
-			Uri:         arg,
-			RequestHash: newUUID.String(),
-			SubmittedBy: cfg.SubmittedBy,
-			SubmittedAt: uint64(time.Now().Unix()),
+			Title:          newUUID.String(),
+			Type:           pb.ContentType_URI,
+			Created:        uint64(time.Now().Unix()),
+			Uri:            arg,
+			RequestHash:    newUUID.String(),
+			SubmittedBy:    cfg.SubmittedBy,
+			SubmittedAt:    uint64(time.Now().Unix()),
+			ATempo:         cfg.ATempo,
+			WordsPerMinute: uint32(cfg.WordsPerMinute),
+			ESpeakVoice:    cfg.ESpeakVoice,
+			SubmittedWith:  cfg.SubmittedWith,
 		}
 
 		if err := mqttComms.SendRequest(req); err != nil {

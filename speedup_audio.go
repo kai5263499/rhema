@@ -41,11 +41,11 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 	ffmpegCmd := sa.execCommand("ffmpeg",
 		"-y",
 		"-i", slowFullFilename,
-		"-filter:a", fmt.Sprintf("atempo=%.1f, volume=10dB", sa.atempo),
+		"-filter:a", fmt.Sprintf("atempo=%.1f", sa.atempo),
 		"-c:a", "libmp3lame", "-q:a", "4", tmpFullFilename)
 
+	logrus.Debugf("running ffmpeg command with ffmpegCmd=%s", ffmpegCmd)
 	if err := ffmpegCmd.Run(); err != nil {
-		logrus.WithError(err).Errorf("error running ffmpeg")
 		return ci, err
 	}
 	ffmpegCmd.Wait()
@@ -58,11 +58,11 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 
 	mp3FullFilename := filepath.Join(sa.localPath, mp3FileName)
 
-	logrus.Debugf("before rename %s -> %s", tmpFullFilename, mp3FullFilename)
-
 	if err := os.Rename(tmpFullFilename, mp3FullFilename); err != nil {
 		return ci, err
 	}
+
+	logrus.Debugf("renamed %s -> %s", tmpFullFilename, mp3FullFilename)
 
 	return ci, nil
 }
