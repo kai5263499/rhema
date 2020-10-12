@@ -15,6 +15,7 @@ type config struct {
 	MQTTBroker   string `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
 	MQTTClientID string `env:"MQTT_CLIENT_ID" envDefault:"processurl"`
 	LogLevel     string `env:"LOG_LEVEL" envDefault:"info"`
+	SubmittedBy  string `env:"SUBMITTED_BY" envDefault:"kai5263499@gmail.com"`
 }
 
 var (
@@ -47,6 +48,8 @@ func main() {
 			Created:     uint64(time.Now().Unix()),
 			Uri:         arg,
 			RequestHash: newUUID.String(),
+			SubmittedBy: cfg.SubmittedBy,
+			SubmittedAt: uint64(time.Now().Unix()),
 		}
 
 		if err := mqttComms.SendRequest(req); err != nil {
