@@ -19,50 +19,6 @@ import (
 	rg "github.com/redislabs/redisgraph-go"
 )
 
-const (
-	esIndex   = "requests"
-	esMapping = `
-{
-	"mappings":{
-		"properties":{
-			"Title":{
-				"type":"keyword"
-			},
-			"Text":{
-				"type":"text"
-			},
-			"Created":{
-				"type":"date"
-			},
-			"Type":{
-				"type":"integer"
-			},
-			"Size":{
-				"type":"integer"
-			},
-			"Length":{
-				"type":"integer"
-			},
-			"SubmittedAt":{
-				"type":"date"
-			},
-			"SubmittedBy":{
-				"type":"keyword"
-			},
-			"RequestHash":{
-				"type": "keyword"
-			},
-			"Uri":{
-				"type": "keyword"
-			},
-			"DownloadURI":{
-				"type": "keyword"
-			}
-		}
-	}
-}`
-)
-
 // NewContentStorage returns an instance of ContentStorage
 func NewContentStorage(
 	tmpPath string,
@@ -164,28 +120,30 @@ func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
 	}
 
 	// Only store audio content
-	if cs.copyToCloud && ci.Type == pb.ContentType_AUDIO {
-		logrus.Debugf("doCloudStore %s", itemPath)
-		if err := cs.doCloudStore(&ci, itemPath); err != nil {
-			logrus.WithError(err).Error("unable to doCloudStore")
-			return ci, err
+	if ci.Type == pb.ContentType_AUDIO {
+		if cs.copyToCloud {
+			logrus.Debugf("doCloudStore %s", itemPath)
+			if err := cs.doCloudStore(&ci, itemPath); err != nil {
+				logrus.WithError(err).Error("unable to doCloudStore")
+				return ci, err
+			}
+
+			if err := cs.presign(&ci); err != nil {
+				logrus.WithError(err).Error("unable to presign")
+				return ci, err
+			}
 		}
 
-		if err := cs.presign(&ci); err != nil {
-			logrus.WithError(err).Error("unable to presign")
+		if err := cs.addGraphEntries(&ci); err != nil {
+			logrus.WithError(err).Error("unable to add graph entries")
 			return ci, err
 		}
-	}
-
-	if err := cs.addGraphEntries(&ci); err != nil {
-		logrus.WithError(err).Error("unable to add graph entries")
-		return ci, err
 	}
 
 	return ci, nil
 }
 
-func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
+func (cs *ContentStorage) getContentNode(ci *pb.Request) *rg.Node {
 	contentNode := rg.Node{
 		Label: "content",
 		Properties: map[string]interface{}{
@@ -201,27 +159,101 @@ func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
 			"requesthash": ci.RequestHash,
 		},
 	}
-	cs.redisGraph.AddNode(&contentNode)
 
-	submitter := rg.Node{
+	query := fmt.Sprintf("MATCH (n:content {requesthash:'%s'}) RETURN count(n) as cnt", ci.RequestHash)
+	result, queryErr := cs.redisGraph.Query(query)
+	if queryErr != nil {
+		cs.redisGraph.AddNode(&contentNode)
+		return &contentNode
+	}
+
+	cnt := 0
+	for result.Next() {
+		r := result.Record()
+		cntI, found := r.Get("n.cnt")
+		if found {
+			cnt = cntI.(int)
+		}
+	}
+
+	if cnt == 0 {
+		cs.redisGraph.AddNode(&contentNode)
+	}
+
+	return &contentNode
+}
+
+func (cs *ContentStorage) getActorNode(ci *pb.Request) *rg.Node {
+	actorNode := rg.Node{
 		Label: "actor",
 		Properties: map[string]interface{}{
 			"submittedBy": ci.SubmittedBy,
 		},
 	}
-	cs.redisGraph.AddNode(&submitter)
 
+	query := fmt.Sprintf("MATCH (n:actor {submittedBy:'%s'}) RETURN count(n) as cnt", ci.SubmittedBy)
+	result, queryErr := cs.redisGraph.Query(query)
+	if queryErr != nil {
+		cs.redisGraph.AddNode(&actorNode)
+		return &actorNode
+	}
+
+	cnt := 0
+	for result.Next() {
+		r := result.Record()
+		cntI, found := r.Get("n.cnt")
+		if found {
+			cnt = cntI.(int)
+		}
+	}
+
+	if cnt == 0 {
+		cs.redisGraph.AddNode(&actorNode)
+	}
+
+	return &actorNode
+}
+
+func (cs *ContentStorage) getContentEdge(ci *pb.Request, actorNode *rg.Node, contentNode *rg.Node) *rg.Edge {
 	edge := rg.Edge{
-		Source:      &submitter,
+		Source:      actorNode,
 		Relation:    "submitted",
-		Destination: &contentNode,
+		Destination: contentNode,
 		Properties: map[string]interface{}{
 			"submittedat":   int(ci.SubmittedAt),
 			"submittedwith": ci.SubmittedWith,
 			"created":       int(ci.Created),
 		},
 	}
-	cs.redisGraph.AddEdge(&edge)
+
+	query := fmt.Sprintf("MATCH (a:actor {submittedBy:'%s'})-[s:submitted]->(c:content {requesthash:'%s'}) RETURN count(s)", ci.SubmittedBy, ci.RequestHash)
+	result, queryErr := cs.redisGraph.Query(query)
+	if queryErr != nil {
+		cs.redisGraph.AddEdge(&edge)
+		return &edge
+	}
+
+	cnt := 0
+	for result.Next() {
+		r := result.Record()
+		cntI, found := r.Get("n.cnt")
+		if found {
+			cnt = cntI.(int)
+		}
+	}
+
+	if cnt == 0 {
+		cs.redisGraph.AddEdge(&edge)
+	}
+
+	return &edge
+}
+
+func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
+
+	contentNode := cs.getContentNode(ci)
+	actorNode := cs.getActorNode(ci)
+	cs.getContentEdge(ci, actorNode, contentNode)
 
 	if _, err := cs.redisGraph.Commit(); err != nil {
 		return err
