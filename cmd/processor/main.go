@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 
 	"github.com/caarlos0/env"
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
@@ -21,6 +23,8 @@ type config struct {
 	ChownTo               int     `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel              string  `env:"LOG_LEVEL" envDefault:"info"`
 	TitleLengthLimit      int     `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
+	RedisHost             string  `env:"REDIS_HOST"`
+	RedisPort             string  `env:"REDIS_PORT" envDefault:"6379"`
 }
 
 var (
@@ -58,11 +62,18 @@ func main() {
 		logrus.WithError(mqttCommsErr).Fatal("new mqtt comms")
 	}
 
-	requestProcessor = NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit, mqttComms)
+	redisConnStr := fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort)
+	logrus.Debugf("connecting to redis %s", redisConnStr)
+	redisConn, redisConnErr := redis.Dial("tcp", redisConnStr)
+	if redisConnErr != nil {
+		logrus.WithError(redisConnErr).Fatal("unable to connect to redis")
+	}
+
+	requestProcessor = NewRequestProcessor(cfg.TmpPath, scrape, youtube, text2mp3, speedupAudo, cfg.TitleLengthLimit, mqttComms, redisConn)
 
 	go mqttReadLoop()
 
-	logrus.Infof("finished setup, listening for messages from mqtt")
+	logrus.Info("finished setup, listening for messages from mqtt")
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)

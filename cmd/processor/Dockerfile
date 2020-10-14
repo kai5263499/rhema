@@ -20,6 +20,8 @@ ENV WORDS_PER_MINUTE="350"
 ENV ESPEAK_VOICE="f5"
 ENV ATEMPO="2.0"
 ENV TITLE_LENGTH_LIMIT="40"
+ENV REDIS_HOST=""
+ENV REDIS_PORT="6379"
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
