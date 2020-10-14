@@ -70,7 +70,7 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 		ci.Uri)
 
 	youtubeCmd.Stdout = os.Stdout
-	youtubeCmd.Stderr = os.Stderr
+	youtubeCmd.Stderr = os.Stdout
 
 	if err := youtubeCmd.Run(); err != nil {
 		return ci, err

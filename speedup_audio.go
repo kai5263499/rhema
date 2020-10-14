@@ -44,6 +44,9 @@ func (sa *SpeedupAudio) Convert(ci pb.Request) (pb.Request, error) {
 		"-filter:a", fmt.Sprintf("atempo=%.1f", sa.atempo),
 		"-c:a", "libmp3lame", "-q:a", "4", tmpFullFilename)
 
+	ffmpegCmd.Stderr = os.Stdout
+	ffmpegCmd.Stdout = os.Stdout
+
 	logrus.Debugf("running ffmpeg command with ffmpegCmd=%s", ffmpegCmd)
 	if err := ffmpegCmd.Run(); err != nil {
 		return ci, err

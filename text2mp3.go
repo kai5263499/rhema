@@ -87,7 +87,7 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 	ttsCmd.Stdout = os.Stdout
-	ttsCmd.Stderr = os.Stderr
+	ttsCmd.Stderr = os.Stdout
 	ttsCmd.Wait()
 
 	lameCmd := tm.execCommand("lame", "-S", "-m", "m", wavFullFilename, mp3FullFilename)
@@ -96,7 +96,7 @@ func (tm *Text2Mp3) Convert(ci pb.Request) (pb.Request, error) {
 		return ci, err
 	}
 	lameCmd.Stdout = os.Stdout
-	lameCmd.Stderr = os.Stderr
+	lameCmd.Stderr = os.Stdout
 	lameCmd.Wait()
 
 	if err := os.Remove(wavFullFilename); err != nil {
