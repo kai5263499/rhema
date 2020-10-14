@@ -5,7 +5,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kai5263499/rhema/domain"
@@ -14,7 +16,11 @@ import (
 
 var _ domain.Processor = (*RequestProcessor)(nil)
 
-func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, titleLengthLimit int, comms domain.Comms) *RequestProcessor {
+var (
+	processingKeyTTL = 30 * time.Second
+)
+
+func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, titleLengthLimit int, comms domain.Comms, redisConn redis.Conn) *RequestProcessor {
 	return &RequestProcessor{
 		youtube:          youtube,
 		scrape:           scrape,
@@ -23,6 +29,7 @@ func NewRequestProcessor(localPath string, scrape domain.Converter, youtube doma
 		localPath:        localPath,
 		titleLengthLimit: titleLengthLimit,
 		comms:            comms,
+		redisConn:        redisConn,
 	}
 }
 
@@ -34,6 +41,7 @@ type RequestProcessor struct {
 	localPath        string
 	titleLengthLimit int
 	comms            domain.Comms
+	redisConn        redis.Conn
 }
 
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.ContentType {
@@ -69,7 +77,7 @@ func (rp *RequestProcessor) downloadUri(ci pb.Request) error {
 		return err
 	}
 
-	logrus.Debugf("done downloading\n")
+	logrus.Debug("done downloading")
 
 	return nil
 }
@@ -78,6 +86,30 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	var err error
 	var ci2 pb.Request
 	var ci3 pb.Request
+
+	reqKey := ci.RequestHash + ":processed"
+	alreadyProcessed, redisErr := redis.Bool(rp.redisConn.Do("EXISTS", reqKey))
+	if redisErr != nil {
+		logrus.WithError(redisErr).WithFields(logrus.Fields{
+			"reqKey": reqKey,
+		}).Error("error checking key in redis")
+		return ci, nil
+	}
+
+	if alreadyProcessed {
+		return ci, nil
+	}
+
+	defer func() {
+		if err := rp.redisConn.Send("SETEX", reqKey, processingKeyTTL, true); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{
+				"reqKey": reqKey,
+			}).Error("error setting redis key")
+		}
+		if err := rp.redisConn.Flush(); err != nil {
+			logrus.WithError(err).Error("error flushing redis")
+		}
+	}()
 
 	if ci.Type == pb.ContentType_URI {
 		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
@@ -88,7 +120,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 			logrus.WithFields(logrus.Fields{
 				"err": err,
 				"uri": ci.Uri,
-			}).Warnf("error parsing title from uri")
+			}).Warn("error parsing title from uri")
 		} else if len(parsedTitle) > 4 {
 			ci.Title = parsedTitle
 		} else {
@@ -96,7 +128,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 				"err":         err,
 				"uri":         ci.Uri,
 				"parsedTitle": parsedTitle,
-			}).Warnf("parsed title too short")
+			}).Warn("parsed title too short")
 		}
 
 		if len(ci.Title) > rp.titleLengthLimit {
@@ -106,7 +138,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 				"err":      err,
 				"uri":      ci.Uri,
 				"ci.Title": ci.Title,
-			}).Warnf("parsed title too long")
+			}).Warn("parsed title too long")
 		}
 	}
 
@@ -114,19 +146,19 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		"uri":   ci.Uri,
 		"title": ci.Title,
 		"type":  ci.Type,
-	}).Infof("processing")
+	}).Info("processing")
 
 	switch ci.Type {
 	case pb.ContentType_YOUTUBE:
 		ci2, err = rp.youtube.Convert(ci)
 		if err != nil {
-			logrus.WithError(err).Errorf("error with youtube")
+			logrus.WithError(err).Error("error with youtube")
 			return ci, err
 		}
 
 		ci3, err = rp.speedupAudio.Convert(ci2)
 		if err != nil {
-			logrus.WithError(err).Errorf("error with youtube audio")
+			logrus.WithError(err).Error("error with youtube audio")
 			return ci2, err
 		}
 
@@ -137,7 +169,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		if len(ci.Text) < 1 {
 			ci2, err = rp.scrape.Convert(ci)
 			if err != nil {
-				logrus.WithError(err).Errorf("error with text")
+				logrus.WithError(err).Error("error with text")
 				return ci, err
 			}
 		} else {
@@ -146,7 +178,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 
 		ci3, err = rp.text2mp3.Convert(ci2)
 		if err != nil {
-			logrus.WithError(err).Errorf("error with text to audio conversion")
+			logrus.WithError(err).Error("error with text to audio conversion")
 			return ci2, err
 		}
 
@@ -156,13 +188,13 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	case pb.ContentType_AUDIO:
 		err = rp.downloadUri(ci)
 		if err != nil {
-			logrus.WithError(err).Errorf("error downloading audio uri")
+			logrus.WithError(err).Error("error downloading audio uri")
 			return ci, err
 		}
 
 		ci2, err = rp.speedupAudio.Convert(ci)
 		if err != nil {
-			logrus.WithError(err).Errorf("error speeding up audio")
+			logrus.WithError(err).Error("error speeding up audio")
 			return ci, err
 		}
 
@@ -172,7 +204,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	case pb.ContentType_VIDEO:
 		err = rp.downloadUri(ci)
 		if err != nil {
-			logrus.WithError(err).Errorf("error downloading video uri")
+			logrus.WithError(err).Error("error downloading video uri")
 			return ci, err
 		}
 
