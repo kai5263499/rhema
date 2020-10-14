@@ -101,7 +101,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 	}
 
 	defer func() {
-		if err := rp.redisConn.Send("SETEX", reqKey, processingKeyTTL, true); err != nil {
+		if err := rp.redisConn.Send("SETEX", reqKey, processingKeyTTL.Seconds(), true); err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
 				"reqKey": reqKey,
 			}).Error("error setting redis key")
