@@ -147,7 +147,12 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 		return
 	}
 
-	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I'll process %d url", SUCCESS_EMOJI, user.Name, len(uris)), ev.Channel))
+	plural := ""
+	if len(uris) > 1 {
+		plural = "s"
+	}
+
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I'll process %d uri%s", SUCCESS_EMOJI, user.Name, len(uris), plural), ev.Channel))
 
 	for _, parsedUri := range uris {
 		go b.processUri(parsedUri, user, ev.Channel, false)
@@ -210,12 +215,12 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	body, _ := ioutil.ReadAll(resp.Body)
 	bodyStr := string(body)
 
-	if file.Title == "urls" {
-		urls := URL_REGEXP.FindAllString(bodyStr, -1)
+	if file.Title == "uris" {
+		uris := URL_REGEXP.FindAllString(bodyStr, -1)
 
-		logrus.Debugf("parsed %d urls", len(urls))
+		logrus.Debugf("parsed %d uris", len(uris))
 
-		for _, parsedUrl := range urls {
+		for _, parsedUrl := range uris {
 			unescapedUrl, _ := url.QueryUnescape(parsedUrl)
 			go b.processUri(unescapedUrl, user, channel, false)
 		}
