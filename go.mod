@@ -8,6 +8,8 @@ require (
 	firebase.google.com/go v3.12.0+incompatible
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
+	github.com/allisonmorgan/tfidf v0.0.0-20141222172920-93bbc6c36075
+	github.com/blevesearch/bleve v1.0.12 // indirect
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/davecgh/go-spew v1.1.1
 	github.com/eclipse/paho.mqtt.golang v1.2.0
@@ -22,6 +24,7 @@ require (
 	github.com/headzoo/ut v0.0.0-20181013193318-a13b5a7a02ca // indirect
 	github.com/kai5263499/glossa v0.0.0-20200102023718-cc101fbbe34e
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/lytics/multibayes v0.0.0-20161108162840-3457a5582021 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/olivere/elastic/v7 v7.0.15

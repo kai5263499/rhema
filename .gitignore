@@ -6,6 +6,7 @@ cmd/contentbot/contentbot
 cmd/apiserver/apiserver
 cmd/processor/processor
 cmd/storage/storage
+cmd/tfidfkeywords/tfidfkeywords
 
 mosquitto.conf
 environ.rc
