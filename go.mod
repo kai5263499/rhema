@@ -14,12 +14,14 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/eclipse/paho.mqtt.golang v1.2.0
 	github.com/fatih/structs v1.1.0
+	github.com/friendsofgo/graphiql v0.2.2
 	github.com/go-openapi/spec v0.19.8 // indirect
 	github.com/go-openapi/swag v0.19.9 // indirect
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/protobuf v1.4.2
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
+	github.com/graphql-go/graphql v0.7.9
 	github.com/headzoo/surf v1.0.0
 	github.com/headzoo/ut v0.0.0-20181013193318-a13b5a7a02ca // indirect
 	github.com/kai5263499/glossa v0.0.0-20200102023718-cc101fbbe34e
