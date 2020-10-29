@@ -14,7 +14,7 @@ type config struct {
 	MQTTBroker     string   `env:"MQTT_BROKER" envDefault:"tcp://172.17.0.3:1883"`
 	MQTTClientID   string   `env:"MQTT_CLIENT_ID" envDefault:"contentbot"`
 	SlackToken     string   `env:"SLACK_TOKEN"`
-	SubmittedWith  string   `env:"SUBMITTED_With" envDefault:"contentbot"`
+	SubmittedWith  string   `env:"SUBMITTED_WITH" envDefault:"contentbot"`
 	Channels       []string `env:"CHANNELS" envDefault:"content"`
 	LogLevel       string   `env:"LOG_LEVEL" envDefault:"info"`
 	TmpPath        string   `env:"TMP_PATH" envDefault:"/tmp"`

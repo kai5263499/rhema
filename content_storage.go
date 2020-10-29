@@ -147,7 +147,9 @@ func (cs *ContentStorage) getContentNode(ci *pb.Request) *rg.Node {
 	contentNode := rg.Node{
 		Label: "content",
 		Properties: map[string]interface{}{
-			"downloadURI": ci.DownloadURI,
+			"created":     int(ci.Created),
+			"downloaduri": ci.DownloadURI,
+			"title":       ci.Title,
 			"type":        ci.Type.String(),
 			"size":        int(ci.Size),
 			"length":      int(ci.Length),
