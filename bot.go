@@ -105,7 +105,7 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 
 	user, err := b.api.GetUserInfo(ev.User)
 	if err != nil {
-		logrus.Errorf("error retrieving user info %v", err)
+		logrus.WithError(err).Errorf("error retrieving user info")
 		return
 	}
 
@@ -115,7 +115,7 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"err": err,
-			}).Errorf("error processing command")
+			}).Error("error processing command")
 			continue
 		}
 
@@ -124,7 +124,7 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 			"matched":  matched,
 			"action":   pat.action,
 			"args_len": len(args),
-		}).Debugf("pattern match")
+		}).Debug("pattern match")
 
 		if !matched {
 			continue
@@ -208,7 +208,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"fileURLPrivate": file.URLPrivate,
-		}).Errorf("error downloading shared file")
+		}).Error("error downloading shared file")
 		return
 	}
 
@@ -289,14 +289,13 @@ func (b *Bot) joinChannels() {
 	for _, chanStr := range b.channels {
 		channel, err := b.api.JoinChannel(chanStr)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{
+			logrus.WithError(err).WithFields(logrus.Fields{
 				"channel": chanStr,
-				"err":     err,
-			}).Errorf("failed to join channel")
+			}).Error("failed to join channel")
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"channel": chanStr,
-			}).Debugf("joined channel")
+			}).Debug("joined channel")
 			b.slackChannels = append(b.slackChannels, channel)
 		}
 	}
@@ -322,7 +321,7 @@ func (b *Bot) getConfig(key string, user *slack.User, channel string) {
 	logrus.WithFields(logrus.Fields{
 		"found": found,
 		"val":   val,
-	}).Debugf("get setting")
+	}).Debug("get setting")
 
 	if found {
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> config property %s=%s", SUCCESS_EMOJI, user.Name, key, val), channel))
