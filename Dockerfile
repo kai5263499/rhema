@@ -16,7 +16,7 @@ RUN echo "Install apt packages" && \
 	apt-get install -y git gcc make curl unzip jq lame espeak-ng espeak-ng-data ffmpeg sox libsox-fmt-mp3 python ca-certificates
 
 RUN	echo "Install youtube-dl" && \
-	curl -sL https://github.com/ytdl-org/youtube-dl/releases/download/2019.11.28/youtube-dl -o /usr/local/bin/youtube-dl && \
+	curl -sL https://yt-dl.org/latest -o /usr/local/bin/youtube-dl && \
 	chmod +x /usr/local/bin/youtube-dl && \
 	/usr/local/bin/youtube-dl -U
 
