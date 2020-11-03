@@ -161,6 +161,7 @@ func (cs *ContentStorage) getContentNode(ci *pb.Request) *rg.Node {
 			"atempo":      ci.ATempo,
 			"text":        ci.Text,
 			"requesthash": ci.RequestHash,
+			"storagepath": ci.StoragePath,
 		},
 	}
 
