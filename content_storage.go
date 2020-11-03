@@ -89,13 +89,15 @@ func copyFileContents(src, dst string) error {
 
 // Store persists a content item in S3
 func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
-	logrus.Debugf("storing content item %+#v", cs)
-
 	itemPath, err := getPath(ci)
 	if err != nil {
 		logrus.WithError(err).Error("unable to get path")
 		return ci, err
 	}
+
+	ci.StoragePath = itemPath
+
+	logrus.Debugf("storing content item to %s", ci.StoragePath)
 
 	if cs.copyToLocal && ci.Type == pb.ContentType_AUDIO {
 		src := filepath.Join(cs.tmpPath, itemPath)
