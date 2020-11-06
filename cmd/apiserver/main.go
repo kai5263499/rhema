@@ -190,6 +190,12 @@ func gqlSchema() graphql.Schema {
 				"submittedby": &graphql.ArgumentConfig{
 					Type: graphql.NewNonNull(graphql.String),
 				},
+				"skip": &graphql.ArgumentConfig{
+					Type: graphql.Int,
+				},
+				"take": &graphql.ArgumentConfig{
+					Type: graphql.Int,
+				},
 			},
 			Resolve: func(params graphql.ResolveParams) (interface{}, error) {
 				submittedby := params.Args["submittedby"].(string)
@@ -197,8 +203,18 @@ func gqlSchema() graphql.Schema {
 				fields := GetSelectedFields([]string{"contents"}, params)
 				selectedFields := fieldsToGQLSelect(fields)
 
+				skip := 0
+				if v, success := params.Args["skip"]; success {
+					skip = v.(int)
+				}
+
+				limit := 10
+				if v, success := params.Args["limit"]; success {
+					limit = v.(int)
+				}
+
 				requests := make([]pb.Request, 0)
-				query := fmt.Sprintf("MATCH (a:actor {submittedBy:'%s'})-[s:submitted]->(c:content) RETURN %s LIMIT 10", submittedby, selectedFields)
+				query := fmt.Sprintf("MATCH (a:actor {submittedBy:'%s'})-[s:submitted]->(c:content) RETURN %s ORDER BY c.created DESC SKIP %d LIMIT %d", submittedby, selectedFields, skip, limit)
 
 				logrus.Debugf("gql query %s", query)
 
