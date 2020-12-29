@@ -113,31 +113,34 @@ func (a *Api) getPemCertFromToken(token *jwt.Token) (*rsa.PublicKey, error) {
 
 			result, err := jwt.ParseRSAPublicKeyFromPEM([]byte(pemCert))
 			if err != nil {
-				log.WithError(err).Fatal("unable to parse RSA public key from PEM")
+				return nil, err
 			}
 
 			return result, nil
 		}
 	}
 
-	return nil, errors.New("Unable to find appropriate key.")
+	return nil, errors.New("unable to find appropriate key")
 }
 
 type reqBody struct {
 	Query string `json:"query"`
 }
 
-func (a *Api) processQuery(query string) (result string) {
+func (a *Api) processQuery(query string) (string, error) {
 	log.Debug("process query")
 
 	params := graphql.Params{Schema: a.gqlSchema(), RequestString: query}
 	r := graphql.Do(params)
 	if len(r.Errors) > 0 {
-		fmt.Printf("failed to execute graphql operation, errors: %+v", r.Errors)
+		return "", fmt.Errorf("failed to execute graphql operation, errors: %+v", r.Errors)
 	}
-	rJSON, _ := json.Marshal(r)
+	rJSON, err := json.Marshal(r)
+	if err != nil {
+		return "", err
+	}
 
-	return fmt.Sprintf("%s", rJSON)
+	return fmt.Sprintf("%s", rJSON), nil
 }
 
 func (a *Api) Setup() {
@@ -192,13 +195,16 @@ func (a *Api) Setup() {
 		}
 
 		var rBody reqBody
-		err := json.NewDecoder(r.Body).Decode(&rBody)
-		if err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&rBody); err != nil {
 			http.Error(w, "Error parsing JSON request body", 400)
 			return
 		}
 
-		fmt.Fprintf(w, "%s", a.processQuery(rBody.Query))
+		q, err := a.processQuery(rBody.Query)
+		if err != nil {
+			http.Error(w, "Error processing query", 400)
+		}
+		fmt.Fprintf(w, "%s", q)
 	})
 
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
@@ -215,11 +221,11 @@ func (a *Api) Setup() {
 				return token, errors.New("invalid issuer")
 			}
 
-			if pemCert, err := a.getPemCertFromToken(token); err != nil {
+			pemCert, err := a.getPemCertFromToken(token)
+			if err != nil {
 				return token, errors.New("Unable to find PEM cert from token")
-			} else {
-				return pemCert, nil
 			}
+			return pemCert, nil
 		},
 		SigningMethod: jwt.SigningMethodRS256,
 	})
