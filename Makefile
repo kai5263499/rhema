@@ -23,6 +23,11 @@ exec-interactive:
 	-v ${DEV_PATH}:/go/src/github.com/kai5263499 \
 	-v ${LOCAL_PATH}:/data \
 	-v ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json \
+	-e GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json \
+	-e AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID} \
+	-e AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET} \
+	-e AUTH0_DOMAIN=${AUTH0_DOMAIN} \
+	-e AUTH0_CALLBACK_URL=${AUTH0_CALLBACK_URL} \
 	--tmpfs /tmp:exec \
 	-p 8090:8080 \
 	-w /go/src/github.com/kai5263499/rhema/cmd/apiserver \
