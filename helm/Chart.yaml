@@ -1,0 +1,8 @@
+name: rhema
+description: A generated Helm Chart for rhema
+version: 0.0.1
+apiVersion: v1
+keywords:
+  - rhema
+sources:
+home:

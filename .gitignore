@@ -12,3 +12,6 @@ mosquitto.conf
 environ.rc
 
 redis-backup
+
+helm/assets/google-service.json
+helm/values.yaml

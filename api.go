@@ -308,7 +308,6 @@ func (a *Api) gqlSchema() graphql.Schema {
 				}
 
 				for result.Next() {
-
 					var req pb.Request
 					if err := graphNodeToReq(result.Record(), &req); err != nil {
 						return nil, errors.New("error converting graph node to request")

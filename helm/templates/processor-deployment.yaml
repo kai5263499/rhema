@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: {{ .Release.Name }}-processor
+  name: {{ .Release.Name }}-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: {{ .Release.Name }}-processor
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: {{ .Release.Name }}-processor
+    spec:
+      containers:
+      - env:
+{{- include "rhema.env" . | nindent 10 }}
+        image: kai5263499/rhema-processor:latest
+        imagePullPolicy: IfNotPresent
+        name: {{ .Release.Name }}-processor
+        volumeMounts:
+        - mountPath: /tmp
+          name: {{ .Release.Name }}-processor-tmp-content
+      restartPolicy: Always
+      volumes:
+      - name: {{ .Release.Name }}-processor-tmp-content
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-processor-tmp-content

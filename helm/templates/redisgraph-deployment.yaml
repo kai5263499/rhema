@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: {{ .Release.Name }}-redisgraph
+  name: {{ .Release.Name }}-redisgraph
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: {{ .Release.Name }}-redisgraph
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: {{ .Release.Name }}-redisgraph
+    spec:
+      containers:
+      - image: redislabs/redisgraph
+        imagePullPolicy: IfNotPresent
+        name: {{ .Release.Name }}-redisgraph
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - mountPath: /data
+          name: {{ .Release.Name }}-redisgraph-content
+      restartPolicy: Always
+      volumes:
+      - name: {{ .Release.Name }}-redisgraph-content
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-redisgraph-content

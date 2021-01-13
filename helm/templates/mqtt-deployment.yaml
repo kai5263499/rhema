@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: {{ .Release.Name }}-mqtt
+  name: {{ .Release.Name }}-mqtt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: {{ .Release.Name }}-mqtt
+  template:
+    metadata:
+      labels:
+        io.kompose.service: {{ .Release.Name }}-mqtt
+    spec:
+      containers:
+      - image: eclipse-mosquitto:latest
+        imagePullPolicy: IfNotPresent
+        name: {{ .Release.Name }}-mqtt
+        ports:
+        - containerPort: 1883
+        resources: {}
+      restartPolicy: Always

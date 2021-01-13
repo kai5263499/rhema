@@ -57,7 +57,7 @@ services:
     image: "eclipse-mosquitto:latest"
     restart: always
     ports:
-      - "1883:1883"
+      - "11883:1883"
   redisgraph:
     image: "redislabs/redisgraph"
     restart: always

@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: {{ .Release.Name }}-storage
+  name: {{ .Release.Name }}-storage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: {{ .Release.Name }}-storage
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: {{ .Release.Name }}-storage
+    spec:
+      containers:
+      - env:
+{{- include "rhema.env" . | nindent 10 }}
+        image: kai5263499/rhema-storage:latest
+        imagePullPolicy: IfNotPresent
+        name: {{ .Release.Name }}-storage
+        volumeMounts:
+        - mountPath: /tmp
+          name: {{ .Release.Name }}-storage-tmp-content
+        - mountPath: /gcp-secrets
+          name: {{ .Release.Name }}-google-secret
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - name: {{ .Release.Name }}-storage-tmp-content
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-storage-tmp-content
+      - name: {{ .Release.Name }}-google-secret
+        secret:
+          secretName: {{ .Release.Name }}-google-secret

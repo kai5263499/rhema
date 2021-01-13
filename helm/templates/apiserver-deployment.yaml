@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: {{ .Release.Name }}-apiserver
+  name: {{ .Release.Name }}-apiserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: {{ .Release.Name }}-apiserver
+  template:
+    metadata:
+      labels:
+        io.kompose.service: {{ .Release.Name }}-apiserver
+    spec:
+      containers:
+      - env:
+        - name: AUTH0_CALLBACK_URL
+          value: "{{ .Values.auth0.callback_url }}"
+        - name: AUTH0_CLIENT_ID
+          value: "{{ .Values.auth0.client_id }}"
+        - name: AUTH0_CLIENT_SECRET
+          value: "{{ .Values.auth0.client_secret }}"
+        - name: AUTH0_DOMAIN
+          value: "{{ .Values.auth0.domain }}"
+{{- include "rhema.env" . | nindent 8 }}
+        image: kai5263499/rhema-apiserver:latest
+        imagePullPolicy: IfNotPresent
+        name: {{ .Release.Name }}-apiserver
+        ports:
+        - containerPort: 8080
+      restartPolicy: Always
