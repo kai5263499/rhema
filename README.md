@@ -74,3 +74,21 @@ Possible espeak-ng voice options for the optional `ESPEAK_VOICE` parameter inclu
  AnxiousAndy   Jacky  'Mr serious'   boris    f3   iven2   klatt        linda    m4   max      rob       steph3   zac
  Denis         Lee     Storm         croak    f4   iven3   klatt2       m1       m5   michel   robert    travis
 ```
+
+# Deploy to Kubernetes
+
+Helm3 charts are provided to deploy this service into a Kubernetes cluster
+
+~~~~bash
+# Install the mechanism for generating let's encrypt certificates for SSL transport
+kubectl create namespace cert-manager
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.2.0 --set installCRDs=true
+
+# Install nginx ingress ingress with a public IP
+helm install nginx-ingress ingress-nginx/ingress-nginx --set controller.publishService.enabled=true
+
+# Manual step (sorry) - Set your domain's A record to the public IP exposed above
+
+# Finally, install the Rhema suite of services
+helm install rhema ./helm
+~~~~

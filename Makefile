@@ -53,4 +53,10 @@ build-all:
 test:
 	go test
 
-.PHONY: exec-interactive go-protos test all-services all-images
+ds-install:
+	helm install rhema ./helm 
+
+ds-uninstall:
+	helm delete rhema
+
+.PHONY: exec-interactive go-protos test all-services all-images ds-install ds-uninstall

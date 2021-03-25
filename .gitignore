@@ -14,4 +14,9 @@ environ.rc
 redis-backup
 
 helm/assets/google-service.json
+helm/assets/cloudflare-api-key.txt
 helm/values.yaml
+
+k8s
+
+helm/charts/*.tgz
