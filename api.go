@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	ast "github.com/graphql-go/graphql/language/ast"
+	"github.com/icza/gox/stringsx"
 	rg "github.com/redislabs/redisgraph-go"
 	log "github.com/sirupsen/logrus"
 
@@ -513,7 +514,7 @@ func graphNodeToReq(rec *rg.Record, req *pb.Request) error {
 	}
 
 	if i, _ := rec.Get("c.title"); i != nil {
-		req.Title = i.(string)
+		req.Title = stringsx.Clean(i.(string))
 	}
 
 	if i, _ := rec.Get("c.wpm"); i != nil {

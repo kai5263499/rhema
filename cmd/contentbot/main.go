@@ -48,6 +48,8 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
+	logrus.SetReportCaller(true)
+
 	var newMqttCommsErr error
 	mqttComms, newMqttCommsErr = NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
 	if newMqttCommsErr != nil {

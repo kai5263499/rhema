@@ -51,6 +51,8 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
+	logrus.SetReportCaller(true)
+
 	speedupAudo := NewSpeedupAudio(cfg.TmpPath, cfg.DefaultAtempo)
 	scrape := NewScrape(uint32(cfg.MinTextBlockSize), cfg.TmpPath, cfg.TitleLengthLimit)
 	text2mp3 := NewText2Mp3(cfg.TmpPath, cfg.DefaultWordsPerMinute, cfg.DefaultEspeakVoice)

@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/icza/gox/stringsx"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/sirupsen/logrus"
@@ -41,7 +42,7 @@ func (yt *YouTube) Convert(ci pb.Request) (pb.Request, error) {
 		}).Warnf("unable to scrape title")
 	} else {
 		if len(scrapeReq.Title) > 3 {
-			ci.Title = scrapeReq.Title
+			ci.Title = stringsx.Clean(scrapeReq.Title)
 		}
 	}
 

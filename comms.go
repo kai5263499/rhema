@@ -56,7 +56,7 @@ func (m *MqttComms) RequestChan() chan pb.Request {
 func (m *MqttComms) SendRequest(req pb.Request) error {
 	pubBytes, err := proto.Marshal(&req)
 	if err != nil {
-		logrus.WithError(err).Errorf("unable to marshal proto")
+		logrus.WithError(err).Errorf("unable to marshal proto %+#v", req)
 		return err
 	}
 
