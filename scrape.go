@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/icza/gox/stringsx"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
@@ -92,9 +93,9 @@ func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
 
 	if len(title) > 3 {
 		if s.titleLengthLimit > 0 && len(title) > s.titleLengthLimit {
-			ci.Title = title[:s.titleLengthLimit]
+			ci.Title = stringsx.Clean(title[:s.titleLengthLimit])
 		} else {
-			ci.Title = title
+			ci.Title = stringsx.Clean(title)
 		}
 	}
 

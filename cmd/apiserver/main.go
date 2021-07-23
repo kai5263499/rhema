@@ -49,6 +49,8 @@ func main() {
 		log.SetLevel(level)
 	}
 
+	logrus.SetReportCaller(true)
+
 	mqttComms, mqttCommsErr := NewMqttComms(cfg.MQTTClientID, cfg.MQTTBroker)
 	if mqttCommsErr != nil {
 		log.WithError(mqttCommsErr).Fatal("new mqtt comms")

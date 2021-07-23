@@ -23,6 +23,7 @@ require (
 	github.com/graphql-go/graphql v0.7.9
 	github.com/headzoo/surf v1.0.0
 	github.com/headzoo/ut v0.0.0-20181013193318-a13b5a7a02ca // indirect
+	github.com/icza/gox v0.0.0-20201215141822-6edfac6c05b5 // indirect
 	github.com/kai5263499/glossa v0.0.0-20200102023718-cc101fbbe34e
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lytics/multibayes v0.0.0-20161108162840-3457a5582021 // indirect

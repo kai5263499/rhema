@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/icza/gox/stringsx"
 	"github.com/sirupsen/logrus"
 
 	"github.com/kai5263499/rhema/domain"
@@ -122,7 +123,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 				"uri": ci.Uri,
 			}).Warn("error parsing title from uri")
 		} else if len(parsedTitle) > 4 {
-			ci.Title = parsedTitle
+			ci.Title = stringsx.Clean(parsedTitle)
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"err":         err,
@@ -132,7 +133,7 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 		}
 
 		if len(ci.Title) > rp.titleLengthLimit {
-			ci.Title = ci.Title[0:rp.titleLengthLimit]
+			ci.Title = stringsx.Clean(ci.Title[0:rp.titleLengthLimit])
 
 			logrus.WithFields(logrus.Fields{
 				"err":      err,
