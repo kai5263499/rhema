@@ -13,7 +13,7 @@ type titleTest struct {
 }
 
 type extTypeTest struct {
-	extType pb.ContentType_ContentType
+	extType pb.ContentType
 	want    string
 }
 

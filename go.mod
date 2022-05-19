@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.8.0
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/allisonmorgan/tfidf v0.0.0-20141222172920-93bbc6c36075
-	github.com/auth0/go-jwt-middleware v0.0.0-20201030150249-d783b5c46b39
+	github.com/auth0/go-jwt-middleware v1.0.1
 	github.com/blevesearch/bleve v1.0.12 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/caarlos0/env v3.5.0+incompatible
@@ -14,10 +14,12 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.2.0
+	github.com/form3tech-oss/jwt-go v3.2.2+incompatible
 	github.com/friendsofgo/graphiql v0.2.2
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/golang/protobuf v1.4.2
 	github.com/gomodule/redigo v2.0.0+incompatible
+	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/google/martian v2.1.1-0.20190517191504-25dcb96d9e51+incompatible // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/graphql-go/graphql v0.7.9
@@ -36,11 +38,11 @@ require (
 	github.com/redislabs/redisgraph-go v2.0.2+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/slack-go/slack v0.6.5
-	github.com/stretchr/testify v1.6.1 // indirect
+	github.com/stretchr/testify v1.7.1 // indirect
 	golang.org/x/mod v0.3.0 // indirect
-	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200523222454-059865788121 // indirect
+	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/tools v0.0.0-20200609164405-eb789aa7ce50 // indirect
 	google.golang.org/api v0.29.0 // indirect
 	google.golang.org/genproto v0.0.0-20200521103424-e9a78aa275b7 // indirect

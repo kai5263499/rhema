@@ -12,7 +12,7 @@ import (
 	// External
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/codegangsta/negroni"
-	"github.com/dgrijalva/jwt-go"
+	"github.com/form3tech-oss/jwt-go"
 	"github.com/friendsofgo/graphiql"
 	"github.com/gofrs/uuid"
 	"github.com/gomodule/redigo/redis"

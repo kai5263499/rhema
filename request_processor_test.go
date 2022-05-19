@@ -23,7 +23,7 @@ type rpTest struct {
 
 type rpUriTest struct {
 	uri          string
-	expectedType pb.ContentType_ContentType
+	expectedType pb.ContentType
 }
 
 var processRPCmdInput func(args []string) (string, int)

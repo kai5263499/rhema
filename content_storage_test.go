@@ -26,7 +26,7 @@ var _ = Describe("content_storage", func() {
 	PIt("Should store the text file in GCP", func() {
 		var err error
 
-		cs, err := NewContentStorage("/tmp", "my-bucket", &placeholderGCPClient{})
+		cs, err := NewContentStorage("/tmp", "my-bucket", &placeholderGCPClient{}, false, "", 0600, false, nil, "")
 		Expect(err).To(BeNil())
 
 		requestContent := "this is the scraped text data from a url request"
