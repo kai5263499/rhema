@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/allisonmorgan/tfidf"
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gomodule/redigo/redis"
 	rg "github.com/redislabs/redisgraph-go"

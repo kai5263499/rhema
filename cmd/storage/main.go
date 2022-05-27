@@ -7,7 +7,7 @@ import (
 	"os/signal"
 
 	"cloud.google.com/go/storage"
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 

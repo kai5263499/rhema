@@ -5,7 +5,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 

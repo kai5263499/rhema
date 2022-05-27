@@ -6,7 +6,7 @@ import (
 	"os/signal"
 
 	// External
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 	"github.com/gomodule/redigo/redis"
 	rg "github.com/redislabs/redisgraph-go"
 	"github.com/sirupsen/logrus"

@@ -1,18 +1,75 @@
-all-images:
-	docker build -t kai5263499/rhema-builder .
-	docker build -t kai5263499/rhema-process-url -f cmd/processurl/Dockerfile .
-	docker build -t kai5263499/rhema-scrape -f cmd/scrape/Dockerfile .
-	docker build -t kai5263499/rhema-bot -f cmd/contentbot/Dockerfile .
-	docker build -t kai5263499/rhema-processor -f cmd/processor/Dockerfile .
-	docker build -t kai5263499/rhema-storage -f cmd/storage/Dockerfile .
-	docker build -t kai5263499/rhema-apiserver -f cmd/apiserver/Dockerfile .
+
+DOCKER_REPO := kai5263499
+
+MODULES=$(subst cmd/,,$(wildcard cmd/*))
+TEST_FILTER?=.
+
+GIT_COMMIT := $(shell git rev-parse HEAD | cut -c 1-8)
+GIT_BRANCH := $(shell git branch --show-current)
+
+which = $(shell which $1 2> /dev/null || echo $1)
+
+GO_PATH := $(call which,go)
+$(GO_PATH):
+	$(error Missing go)
+
+MOQ_PATH := $(call which,moq)
+$(MOQ_PATH):
+	@$(GO_PATH) install github.com/matryer/moq@latest
+
+PUML_PATH := $(call which,plantuml)
+$(PUML_PATH):
+	$(error Missing plantuml: https://plantuml.com/starting)
+
+FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
+
+IMAGE_MODULES=$(call FILTER_OUT,image/processor, $(addprefix image/,$(MODULES)))
+.PHONY: ${IMAGE_MODULES}
+
+OUT_MODULES=$(addprefix out/,$(MODULES))
+.PHONY: ${OUT_MODULES}
+
+image/builder:
+	docker build -t ${DOCKER_REPO}/rhema-builder -f Dockerfile.builder .
+
+image/all: image/builder
+	for image in ${IMAGE_MODULES}; do \
+        make $$image ; \
+    done
+
+${IMAGE_MODULES}:
+	docker rmi -f ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT}
+	docker build -t ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} -f Dockerfile.cmd --build-arg service_name=$(subst image/,,$@) .
+	docker tag ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} ${DOCKER_REPO}/$(subst image/,,$@):${GIT_BRANCH}
+	docker rmi $$(docker images -f "dangling=true" -q) || true
+
+image/processor:
+	docker rmi -f ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT}
+	docker build -t ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} -f Dockerfile.cmd.processor .
+	docker tag ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} ${DOCKER_REPO}/$(subst image/,,$@):${GIT_BRANCH}
+	docker rmi $$(docker images -f "dangling=true" -q) || true
+
+${OUT_MODULES}:
+	@$(GO_PATH) build -gcflags=all="-N -l" -o $@ ./cmd/$(subst out/,,$@)
+
+out/all:
+	for out in ${OUT_MODULES}; do \
+        make $$out ; \
+    done
+
+TOOLS=$(wildcard tools/*)
+.PHONY: ${TOOLS}
+
+${TOOLS}:
+	@echo "running $(subst tools/,,$@)"
+	@$(GO_PATH) run ./$@
 
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
-go-protos:
+protos:
 	protoc -I proto/ proto/*.proto --go_out=generated
 
 # Run an interactive shell for development and testing
-exec-interactive:
+container/interactive:
 	docker run -it --rm \
 	-e BUCKET="${BUCKET}" \
 	-e MQTT_BROKER="${MQTT_BROKER}" \
@@ -33,7 +90,10 @@ exec-interactive:
 	-w /go/src/github.com/kai5263499/rhema/cmd/apiserver \
 	kai5263499/rhema-builder bash
 
-mosquitto:
+mktmp:
+	mkdir -p /tmp/mqtt-data /tmp/mqtt-log /tmp/redisgraph
+
+docker/mosquitto/up: mktmp
 	docker run -d \
 	--name mosquitto \
 	-p 1883:1883 -p 9001:9001 \
@@ -42,21 +102,51 @@ mosquitto:
 	-v mosquitto.conf:/mosquitto/config/mosquitto.conf \
 	eclipse-mosquitto
 
-build-all:
-	cd cmd/apiserver && go build
-	cd cmd/contentbot && go build
-	cd cmd/processurl && go build
-	cd cmd/scrape && go build
-	cd cmd/processor && go build
-	cd cmd/storage && go build
+docker/mosquitto/down:
+	docker rm -f mosquitto
+
+docker/redisgraph/up: mktmp
+	docker run -d \
+	--name regisgraph \
+	-p 6397:6397 \
+	-v /tmp/regisgraphdata:/data
+	redislabs/redisgraph
+
+docker/redisgraph/down:
+	docker rm -f redisgraph
+
+test/%:
+	go test -v -count=1 ./... -run $(@F)
+
+intg/tests:
+	go test -cover -count=1 $(sort $(dir $(shell find . -type f -name '*.go' | grep -ivw 'cmd\|domain\|tools\|vendor'))) -tags=intg -args online
+
+unit/tests: test
 
 test:
-	go test
+	go test -cover -count=1 $(sort $(dir $(shell find . -type f -name '*.go' | grep -ivw 'cmd\|domain\|tools\|vendor'))) -tags=!intg
 
-ds-install:
+test/cmd/%:
+	go test -v -timeout 15m -count=1 -tags=$(@F) ./cmd/$(@F)/... -run ${TEST_FILTER}
+
+ds/install:
 	helm install rhema ./helm 
 
-ds-uninstall:
+ds/uninstall:
 	helm delete rhema
 
-.PHONY: exec-interactive go-protos test all-services all-images ds-install ds-uninstall
+mock: $(MOQ_PATH)
+	@$(GO_PATH) generate ./...
+.PHONY: mock
+
+puml:
+	plantuml -t png -o . $(wildcard doc/*.puml)
+
+LINTER_PATH := $(call which,golangci-lint)
+$(LINTER_PATH):
+	$(error Missing golangci: https://golangci-lint.run/usage/install)
+lint:
+	@rm -rf ./vendor
+	@$(GO_PATH) mod vendor
+	export GOMODCACHE=./vendor
+	golangci-lint run

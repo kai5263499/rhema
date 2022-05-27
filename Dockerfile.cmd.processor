@@ -2,12 +2,11 @@ FROM kai5263499/rhema-builder as builder
 
 COPY / /go/src/github.com/kai5263499/rhema
 
-RUN cd /go/src/github.com/kai5263499/rhema/cmd/processor && \
-    go build && \
-    ldd processor | tr -s '[:blank:]' '\n' | grep '^/' | \
-    xargs -I % sh -c 'mkdir -p $(dirname deps%); cp % deps%;'
+RUN make out/${service_name} && \
+    ldd out/${service_name} | tr -s '[:blank:]' '\n' | grep '^/' | \
+    xargs -I % sh -c 'mkdir -p $(dirname out/deps%); cp % out/deps%;'
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 LABEL MAINTAINER="Wes Widner <kai5263499@gmail.com>"
 
@@ -31,7 +30,7 @@ COPY --from=builder /usr/local/bin/youtube-dl /usr/local/bin/youtube-dl
 
 RUN /usr/local/bin/youtube-dl -U
 
-COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/processor/deps /
-COPY --from=builder /go/src/github.com/kai5263499/rhema/cmd/processor/processor /processor
+COPY --from=builder /go/src/github.com/kai5263499/rhema/out/deps /
+COPY --from=builder /go/src/github.com/kai5263499/rhema/out/processor /processor
 
 ENTRYPOINT [ "/processor" ]

@@ -1,13 +1,5 @@
 vendor
 
-cmd/scrape/scrape
-cmd/processurl/processurl
-cmd/contentbot/contentbot
-cmd/apiserver/apiserver
-cmd/processor/processor
-cmd/storage/storage
-cmd/tfidfkeywords/tfidfkeywords
-
 mosquitto.conf
 environ.rc
 
@@ -18,5 +10,7 @@ helm/assets/cloudflare-api-key.txt
 helm/values.yaml
 
 k8s
-
+out
 helm/charts/*.tgz
+
+.vscode

@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v6"
 	"github.com/sirupsen/logrus"
 
 	. "github.com/kai5263499/rhema"
