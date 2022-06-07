@@ -1,0 +1,237 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: rhemaapi
+  description: Manage rhema assets
+servers:
+  - url: //localhost:8080/v1
+  - url: //localhost:8080
+    description: local servers
+paths:
+  /:
+    get:
+      tags: [v1]
+      operationId: Ping
+      description: Required by agent 
+      responses:
+        200:
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: OK
+  /live:
+    get:
+      tags: [v1]
+      operationId: Live
+      description: K8 Liviness
+      responses:
+        default:
+          $ref: "#/components/responses/Liveness"
+  /ready:
+    get:
+      tags: [v1]
+      operationId: Ready
+      description: K8 Readiness
+      responses:
+        default:
+          $ref: "#/components/responses/Readiness"
+  /request:
+    post:
+      tags: [v1,origin]
+      operationId: Install
+      parameters:
+        - name: X-Forwarded-For
+          in: header
+          description: Forwarded by haproxy
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        200:
+          $ref: "#/components/responses/RequestOutput"
+        404:
+          description: Org Not Found 
+        420:
+          description: Purchased endpoint exceeded
+        429:
+          description: Too many request per IP Address
+        500:
+          description: Request failed
+        503:
+          description: Circuit Breaker Tripped
+        504:
+          description: api-internal Timeout
+  /result:
+    post:
+      tags: [v1,origin]
+      operationId: SaveResult
+      parameters:
+        - name: X-SSL-CLIENT-S-DN
+          in: header
+          description: Required by PSBaseController
+          schema:
+            type: string
+        - name: async
+          in: query
+          schema:
+            type: boolean
+        - name: diag
+          in: query
+          schema:
+            type: integer
+      responses:
+        200:
+          description: Save succeeded
+        500:
+          description: Internal Error
+components:
+  schemas:
+    Status:
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: Status Code
+        message:
+          type: string
+          description: Status Message
+    Liveness:
+      required:
+      - status
+      properties:
+        status:
+          type: string
+    Readiness:
+      description: https://github.com/gritzkoo/golang-health-checker
+      required:
+      - name
+      - status
+      - version
+      - date
+      - integrations
+      properties:
+        name:
+          type: string
+        status:
+          type: boolean
+        version:
+          type: string
+        date:
+          type: string
+        duration:
+          type: number
+          format: float
+        integrations:
+          type: array
+          items:
+            type: object
+            required:
+            - name
+            - kind
+            - status
+            - response_time
+            - url
+            properties:
+              name:
+                type: string
+              kind:
+                type: string
+              status:
+                type: boolean
+              response_time:
+                type: number
+                format: float
+              url:
+                type: string
+                format: uri
+              errors:
+                type: string
+    RequestInput:
+      required:
+        - id
+        - results
+      properties:
+        type:
+          type: string
+          pattern: ^(URI||YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
+        request_hash:
+          type: string
+        text:
+          type: string
+        title:
+          type: string
+        created:
+          type: integer
+          format: uint64
+        size:
+          type: integer
+          format: uint64
+        length:
+          type: integer
+          format: uint64
+        uri:
+          type: string
+        submitted_by:
+          type: string
+        submitted_at:
+          type: integer
+        number_of_conversions:
+          type: integer
+          format: uint32
+        download_uri:
+          type: string
+        words_per_minute:
+          type: integer
+          format: uint32
+        espeak_voice:
+          type: string
+        atempo:
+          type: string
+        submitted_with:
+          type: string
+        storage_path:
+          type: string
+    RequestOutput:
+        required:
+          - id
+          - results
+        properties:
+          agent_uuid:
+            type: string
+          id:
+            type: integer
+            format: uint64
+          results:
+            type: array
+            items:
+              type: string
+          command_type_name:
+            type: string
+  requestBodies:
+  responses:
+    RequestOutput:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RequestOutput"      
+    Liveness:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Liveness"
+    Readiness:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Readiness"
+
+    

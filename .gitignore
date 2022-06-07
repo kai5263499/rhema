@@ -14,3 +14,9 @@ out
 helm/charts/*.tgz
 
 .vscode
+
+*.gen.go
+
+.vscode
+vendor
+testOutput.xml

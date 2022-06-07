@@ -21,6 +21,8 @@ PUML_PATH := $(call which,plantuml)
 $(PUML_PATH):
 	$(error Missing plantuml: https://plantuml.com/starting)
 
+OAPI := $(call which,oapi-codegen)
+
 FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
 
 IMAGE_MODULES=$(call FILTER_OUT,image/processor, $(addprefix image/,$(MODULES)))
@@ -135,10 +137,6 @@ ds/install:
 ds/uninstall:
 	helm delete rhema
 
-mock: $(MOQ_PATH)
-	@$(GO_PATH) generate ./...
-.PHONY: mock
-
 puml:
 	plantuml -t png -o . $(wildcard doc/*.puml)
 
@@ -150,3 +148,56 @@ lint:
 	@$(GO_PATH) mod vendor
 	export GOMODCACHE=./vendor
 	golangci-lint run
+
+# MUST pin oapi-codegen to match go.mod
+OAPI_PATH := $(call which,oapi-codegen)
+$(OAPI_PATH):
+	$(error Missing oapi-codegen: go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.9.0)
+
+internal/%/server.gen.go: api/%.yaml 
+	@$(OAPI_PATH) -package $(notdir $(@D)) -include-tags="$*" -generate spec,server $< > $@
+
+internal/%/types.gen.go: api/%.yaml 
+	@$(OAPI_PATH) -package $(notdir $(@D)) -generate types $< > $@
+
+internal/%/origin.gen.go: api/%.yaml 
+	@$(OAPI_PATH) -package $(notdir $(@D)) -include-tags="origin" -generate client $< > $@
+
+%/types.gen.go: api/%.yaml 
+	@$(OAPI_PATH) -package agentconfig -include-tags="$*" -generate types $< > $@
+
+%/client.gen.go: api/%.yaml 
+	@$(OAPI_PATH) -package agentconfig -include-tags="$*" -generate client $< > $@
+
+api/v1: $(OAPI_PATH) \
+	v1/client.gen.go \
+	v1/types.gen.go \
+	internal/v1/origin.gen.go \
+	internal/v1/server.gen.go \
+	internal/v1/types.gen.go 
+.PHONY: api/v1
+
+GO_JUNIT_REPORT_PATH := $(call which,go-junit-report)
+$(GO_JUNIT_REPORT_PATH):
+	$(error Missing go-junit-report)
+
+TEST_ARGS := -cover -v -count=1
+test: 
+	@$(GO_PATH) test $(TEST_ARGS) ./internal/... -tags=!intg
+
+test/junit:
+	@make test | $(GO_JUNIT_REPORT_PATH) -set-exit-code > testOutput.xml
+
+MOQ_PATH := $(HOME)/go/bin/moq
+$(MOQ_PATH):
+	$(GO_PATH) install github.com/matryer/moq@latest
+
+mock: $(MOQ_PATH)
+	@$(GO_PATH) generate ./...
+.PHONY: mock
+
+clean:
+	@rm -rf ./vendor
+	@rm -rf out
+	@find . -name "*.gen.go" -exec rm -rf {} \;
+

@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.8.0
 	github.com/allisonmorgan/tfidf v0.0.0-20141222172920-93bbc6c36075
 	github.com/auth0/go-jwt-middleware v1.0.1
-	github.com/caarlos0/env/v6 v6.9.2
+	github.com/caarlos0/env/v6 v6.9.3
 	github.com/codegangsta/negroni v1.0.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/eclipse/paho.mqtt.golang v1.2.0
@@ -15,7 +15,7 @@ require (
 	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
-	github.com/graphql-go/graphql v0.7.9
+	github.com/graphql-go/graphql v0.8.0
 	github.com/headzoo/surf v1.0.0
 	github.com/icza/gox v0.0.0-20201215141822-6edfac6c05b5
 	github.com/kai5263499/glossa v0.0.0-20200102023718-cc101fbbe34e

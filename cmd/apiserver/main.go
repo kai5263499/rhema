@@ -1,19 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 
-	// External
 	"github.com/caarlos0/env/v6"
 	"github.com/gomodule/redigo/redis"
+	. "github.com/kai5263499/rhema"
 	rg "github.com/redislabs/redisgraph-go"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
-
-	// Internal
-	. "github.com/kai5263499/rhema"
 )
 
 type config struct {
@@ -65,7 +64,12 @@ func main() {
 
 	redisG := rg.GraphNew(cfg.RedisGraphKey, redisConn)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	api := NewApi(
+		ctx,
+		stop,
 		redisConn,
 		&redisG,
 		cfg.RedisGraphKey,
@@ -75,21 +79,12 @@ func main() {
 		cfg.Auth0ClientSecret,
 		cfg.Auth0CallbackUrl,
 		cfg.Auth0Domain,
-		cfg.EndableGraphiql,
 		cfg.SubmittedWith,
 	)
 
-	api.Setup()
-
 	api.Start()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	func() {
-		for sig := range c {
-			// sig is a ^C, handle it
-			logrus.Infof("got signal %d, exiting", sig)
-			os.Exit(0)
-		}
-	}()
+	<-ctx.Done()
+
+	log.Info("api exiting")
 }
