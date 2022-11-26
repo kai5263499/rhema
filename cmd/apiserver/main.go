@@ -79,7 +79,7 @@ func main() {
 		cfg.Auth0ClientSecret,
 		cfg.Auth0CallbackUrl,
 		cfg.Auth0Domain,
-		cfg.SubmittedWith,
+		cfg.SubmittedWith,github.com/caarlos0/env/v6
 	)
 
 	api.Start()

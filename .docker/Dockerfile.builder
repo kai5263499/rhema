@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 LABEL MAINTAINER="Wes Widner <kai5263499@gmail.com>"
 

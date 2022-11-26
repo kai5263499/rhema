@@ -4,6 +4,7 @@ info:
   title: rhemaapi
   description: Manage rhema assets
 servers:
+  - url: //host.docker.internal:8000
   - url: //localhost:8080/v1
   - url: //localhost:8080
     description: local servers

@@ -1,0 +1,69 @@
+services:
+  kafka:
+    profiles:
+      - kafka
+    command:
+      - redpanda
+      - start
+      - --check=false
+      - --smp
+      - "1"
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://kafka:29092,OUTSIDE://localhost:9092
+      - --set
+      - redpanda.auto_create_topics_enabled=true
+      - --set
+      - redpanda.enable_idempotence=true
+      - --set
+      - redpanda.enable_transactions=true
+    image: docker.vectorized.io/vectorized/redpanda:v22.1.9
+    healthcheck:
+      test: "curl -s -o /dev/null http://localhost:8082/topics || exit 1"
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    expose:
+      - 29092
+    ports:
+      - "9092:9092"
+    volumes:
+      - ./data/redpanda:/var/lib/redpanda/data
+
+  kafka-ui:
+    profiles:
+      - kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "${KAFKA_UI_PORT:-9000}:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=internal-kafka
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  ax-kafka-tools:
+    profiles:
+      - ax-kafka-tools
+    image: automox.jfrog.io/v3itops-docker/ax-kafka-tools:latest
+    ports:
+      - "${PROTOBUF_PORT:-8888}:8888"
+    environment:
+      - KAFKA_SERVER=kafka:29092
+      - KAFKA_SUBSCRIBED_TOPICS=${PROTOBUF_KAFKA_TOPIC:-ax.all_proto.local,ax.accounts.events.pb.local}
+      - KAFKA_PUBLISH_TOPIC=${PROTOBUF_KAFKA_PUBLISH_TOPIC:-ax.all_proto.local}
+      - KAFKA_GROUP=${PROTOBUF_KAFKA_GROUP:-axKafkaToolsGroup}
+      - KAFKA_KEY=${PROTOBUF_KAFKA_KEY:-axKafkaToolsKey}
+      - KAFKA_DEBUG_TOPIC=${PROTOBUF_KAFKA_DEBUG_TOPIC:-axKafkaToolsTopic}
+    depends_on:
+      kafka:
+        condition: service_healthy
