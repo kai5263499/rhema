@@ -1,6 +1,8 @@
 
 DOCKER_REPO := kai5263499
 
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
 MODULES=$(subst cmd/,,$(wildcard cmd/*))
 
 GIT_COMMIT := $(shell git rev-parse HEAD | cut -c 1-8)
@@ -33,7 +35,7 @@ OUT_MODULES=$(addprefix out/,$(MODULES))
 .PHONY: ${OUT_MODULES}
 
 image/builder:
-	@$(DOCKER_PATH) build -t ${DOCKER_REPO}/rhema-builder -f Dockerfile.builder .
+	@$(DOCKER_PATH) build -t ${DOCKER_REPO}/rhema-builder -f .docker/Dockerfile.builder .
 
 image/all: image/builder
 	for image in ${IMAGE_MODULES}; do \
@@ -62,10 +64,46 @@ out/all:
 
 TOOLS=$(wildcard tools/*)
 .PHONY: ${TOOLS}
-
 ${TOOLS}:
 	@echo "running $(subst tools/,,$@)"
 	@$(GO_PATH) run ./$@
+
+# Options to pass to docker compose. Like an .env var file to use
+DOCKER_COMPOSE_OPTIONS:=""
+
+# startup
+container/environment/up:
+	@cd $(ROOT_DIR) && \
+	COMPOSE_PROFILES="$$(cat active_profiles | tr '\n' ',' | sed 's/\(.*\),/\1/')" \
+	@$(DOCKER_PATH) compose \
+	  -f $(ROOT_DIR)/docker-compose-redis.yml \
+	  -f $(ROOT_DIR)/docker-compose-kafka.yml \
+	  $$(echo "$(DOCKER_COMPOSE_OPTIONS)") \
+	  up
+
+# shutdown
+container/environment/down:
+	@cd $(ROOT_DIR) && \
+	COMPOSE_PROFILES="$(ALL_PROFILES)" \
+	@$(DOCKER_PATH) compose \
+	  -f $(ROOT_DIR)/docker-compose-redis.yml \
+	  -f $(ROOT_DIR)/docker-compose-kafka.yml \
+	  $$(echo "$(DOCKER_COMPOSE_OPTIONS)") \
+	  down
+
+# shutdown & cleanup
+container/environment/clean: down
+	@rm -f $(ROOT_DIR)/active_profiles
+
+# add kafka to environment
+.PHONY: add-redis
+add-redis:
+	@echo "redis" >> $(ROOT_DIR)/active_profiles
+
+# add kafka to environment
+.PHONY: add-kafka
+add-kafka:
+	@echo "kafka" >> $(ROOT_DIR)/active_profiles
 
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
 PROTOC_PATH := $(call which,protoc)
