@@ -28,21 +28,13 @@ type botCommand struct {
 	pattern glossa.Pattern
 }
 
-func NewBot(slackToken string, channels []string, tmpPath string, chownTo int, comms domain.Comms, atempo string, wpm int, espeakvoice string, submittedwith string) *Bot {
+func NewBot(cfg *domain.Config) *Bot {
 	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
 
 	bot := &Bot{
-		slackToken:     slackToken,
-		tmpPath:        tmpPath,
-		chownTo:        chownTo,
-		channels:       channels,
-		patterns:       make([]botCommand, 0),
-		cache:          cache.New(5*time.Minute, 10*time.Minute),
-		comms:          comms,
-		atempo:         atempo,
-		wordsperminute: wpm,
-		espeakvoice:    espeakvoice,
-		submittedwith:  submittedwith,
+		cfg:      cfg,
+		patterns: make([]botCommand, 0),
+		cache:    cache.New(5*time.Minute, 10*time.Minute),
 	}
 
 	commands, _ := bot.initPatterns()
@@ -56,37 +48,26 @@ var (
 )
 
 type Bot struct {
-	api            *slack.Client
-	rtm            *slack.RTM
-	slackToken     string
-	channels       []string
-	slackChannels  []*slack.Channel
-	patterns       []botCommand
-	cache          *cache.Cache
-	tmpPath        string
-	chownTo        int
-	comms          domain.Comms
-	atempo         string
-	wordsperminute int
-	espeakvoice    string
-	submittedwith  string
+	cfg           *domain.Config
+	api           *slack.Client
+	rtm           *slack.RTM
+	slackChannels []*slack.Channel
+	patterns      []botCommand
+	cache         *cache.Cache
+	comms         domain.Comms
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
 	newUUID := uuid.Must(uuid.NewV4())
 
-	contentRequest := pb.Request{
-		Uri:            uri,
-		Type:           pb.ContentType_URI,
-		Title:          newUUID.String(),
-		SubmittedBy:    user.Name,
-		SubmittedAt:    uint64(time.Now().UTC().Unix()),
-		Created:        uint64(time.Now().UTC().Unix()),
-		RequestHash:    newUUID.String(),
-		SubmittedWith:  b.submittedwith,
-		ATempo:         b.atempo,
-		WordsPerMinute: uint32(b.wordsperminute),
-		ESpeakVoice:    b.espeakvoice,
+	contentRequest := &pb.Request{
+		Uri:         uri,
+		Type:        pb.ContentType_URI,
+		Title:       newUUID.String(),
+		SubmittedBy: user.Name,
+		SubmittedAt: uint64(time.Now().UTC().Unix()),
+		Created:     uint64(time.Now().UTC().Unix()),
+		RequestHash: newUUID.String(),
 	}
 
 	if err := b.comms.SendRequest(contentRequest); err != nil {
@@ -159,7 +140,7 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 	}
 }
 
-func (b *Bot) processUploadRequest(ci pb.Request, user *slack.User, channel string) {
+func (b *Bot) processUploadRequest(ci *pb.Request, user *slack.User, channel string) {
 	if err := b.comms.SendRequest(ci); err != nil {
 		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request to the processor err=%+#v", FAILURE_EMOJI, user.Name, err), channel))
 		logrus.WithError(err).Error("send request")
@@ -189,8 +170,8 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 		return
 	}
 
-	if len(b.channels) > 0 {
-		channel = b.channels[0]
+	if len(b.cfg.Channels) > 0 {
+		channel = b.cfg.Channels[0]
 	}
 
 	user, err := b.api.GetUserInfo(file.User)
@@ -203,7 +184,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", file.URLPrivate, nil)
-	req.Header.Set("Authorization", "Bearer "+b.slackToken)
+	req.Header.Set("Authorization", "Bearer "+b.cfg.SlackToken)
 	resp, err := client.Do(req)
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
@@ -228,7 +209,7 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 
 		newUUID := uuid.Must(uuid.NewV4())
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Uri:         file.URLPrivate,
 			Title:       file.Title,
 			Type:        pb.ContentType_TEXT,
@@ -246,10 +227,10 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	}
 }
 
-func (b *Bot) Process(ci pb.Request) error {
+func (b *Bot) Process(ci *pb.Request) error {
 	switch ci.Type {
 	case pb.ContentType_AUDIO:
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s I've processed the audio result", SUCCESS_EMOJI), b.channels[0]))
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s I've processed the audio result", SUCCESS_EMOJI), b.cfg.Channels[0]))
 	}
 
 	return nil
@@ -285,8 +266,8 @@ func (b *Bot) slackReadLoop() {
 }
 
 func (b *Bot) joinChannels() {
-	b.slackChannels = make([]*slack.Channel, len(b.channels))
-	for _, chanStr := range b.channels {
+	b.slackChannels = make([]*slack.Channel, len(b.cfg.Channels))
+	for _, chanStr := range b.cfg.Channels {
 		channel, err := b.api.JoinChannel(chanStr)
 		if err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
@@ -305,7 +286,7 @@ func (b *Bot) Start() {
 	logrus.Debug("connecting to slack")
 
 	b.api = slack.New(
-		b.slackToken,
+		b.cfg.SlackToken,
 	)
 
 	b.rtm = b.api.NewRTM()

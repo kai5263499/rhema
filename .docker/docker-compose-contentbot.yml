@@ -1,0 +1,14 @@
+version: '3'
+services:
+  contentbot:
+     profiles:
+      - contentbot
+     environment:
+       - SLACK_TOKEN=${SLACK_TOKEN}
+       - CHANNELS=${CHANNELS}
+     restart: always
+     image: "kai5263499/rhema-bot"
+     container_name: contentbot-1
+     build:
+       context: ..
+       dockerfile: cmd/contentbot/Dockerfile

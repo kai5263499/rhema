@@ -2,9 +2,8 @@ version: '3'
 services:
   processor:
     environment: 
-      - MQTT_BROKER=tcp://mqtt:1883
-      - REDIS_HOST=redisgraph
-      - DEBUG
+      - KAFKA_BROKERS=tcp://mqtt:1883
+      - REDIS_HOST=redis-1
     restart: always
     volumes: 
       - tmp-content:/tmp
@@ -12,30 +11,10 @@ services:
     build: 
       context: .
       dockerfile: cmd/processor/Dockerfile
-  storage:
-    environment: 
-      - MQTT_BROKER=tcp://mqtt:1883
-      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json
-      - REDIS_HOST=redisgraph
-      - BUCKET
-    restart: always
-    volumes:
-      - tmp-content:/tmp
-      - ${LOCAL_PATH}:/data
-      - ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json
-    image: "kai5263499/rhema-storage:latest"
-    build:
-      context: .
-      dockerfile: cmd/storage/Dockerfile
   apiserver:
     environment: 
       - MQTT_BROKER=tcp://mqtt:1883
-      - REDIS_HOST=redisgraph
-      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json
-      - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID}
-      - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
-      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
-      - AUTH0_CALLBACK_URL=${AUTH0_CALLBACK_URL}
+      - REDIS_HOST=redis-1
     restart: always
     image: "kai5263499/rhema-apiserver:latest"
     ports:
@@ -46,25 +25,10 @@ services:
   contentbot:
      environment: 
        - MQTT_BROKER=tcp://mqtt:1883
-       - SLACK_TOKEN
+       - SLACK_TOKEN=${SLACK_TOKEN}
        - CHANNELS
      restart: always
      image: "kai5263499/rhema-bot:latest"
      build:
        context: .
        dockerfile: cmd/contentbot/Dockerfile
-  mqtt:
-    image: "eclipse-mosquitto:latest"
-    restart: always
-    ports:
-      - "11883:1883"
-  redisgraph:
-    image: "redislabs/redisgraph"
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-        - ${GRAPH_DATA}:/data
-volumes:
-  tmp-content:
-  

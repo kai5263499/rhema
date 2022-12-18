@@ -5,24 +5,18 @@ import (
 )
 
 type Converter interface {
-	SetConfig(string, string) bool
-	GetConfig(string) (bool, string)
-	Convert(pb.Request) (pb.Request, error)
+	Convert(*pb.Request) error
 }
 
 type Storage interface {
-	SetConfig(string, string) bool
-	GetConfig(string) (bool, string)
-	Store(pb.Request) (pb.Request, error)
+	Store(*pb.Request) error
 }
 
 type Processor interface {
-	SetConfig(string, string) bool
-	GetConfig(string) (bool, string)
-	Process(pb.Request) (pb.Request, error)
+	Process(*pb.Request) error
 }
 
 type Comms interface {
 	RequestChan() chan pb.Request
-	SendRequest(req pb.Request) error
+	SendRequest(req *pb.Request) error
 }

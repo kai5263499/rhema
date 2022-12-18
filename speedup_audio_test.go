@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gofrs/uuid"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	. "github.com/onsi/ginkgo"
@@ -58,14 +59,16 @@ var _ = Describe("speedup_audio", func() {
 		newUUID := uuid.Must(uuid.NewV4())
 
 		tm := SpeedupAudio{
-			localPath:   "/tmp",
+			cfg: &domain.Config{
+				LocalPath: "/tmp",
+				Atempo:    "2.0",
+			},
 			execCommand: fakeSUAExecCommand,
-			atempo:      2.0,
 		}
 
 		requestContent := "this is a test"
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Created: 383576400,
 			Type:    pb.ContentType_AUDIO,
 			Title:   newUUID.String(),
@@ -76,7 +79,7 @@ var _ = Describe("speedup_audio", func() {
 		slowFilename, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		slowFullFilename := filepath.Join(tm.localPath, slowFilename)
+		slowFullFilename := filepath.Join(tm.cfg.LocalPath, slowFilename)
 		tmpFullFilename := fmt.Sprintf("%s%s", slowFullFilename[:len(slowFullFilename)-4], "-TMP.mp3")
 
 		err = os.MkdirAll(path.Dir(slowFullFilename), os.ModePerm)
@@ -88,8 +91,8 @@ var _ = Describe("speedup_audio", func() {
 		err = ioutil.WriteFile(tmpFullFilename, []byte("test"), 0644)
 		Expect(err).To(BeNil())
 
-		audioRequest, err := tm.Convert(ci)
+		err = tm.Convert(ci)
 		Expect(err).To(BeNil())
-		Expect(audioRequest.Type).To(Equal(pb.ContentType_AUDIO))
+		Expect(ci.Type).To(Equal(pb.ContentType_AUDIO))
 	})
 })

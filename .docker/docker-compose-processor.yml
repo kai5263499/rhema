@@ -1,0 +1,17 @@
+version: '3'
+services:
+  processor:
+    profiles:
+      - processor
+    environment:
+      - REDIS_HOST=redis-1
+    restart: always
+    volumes: 
+      - tmp-content:/tmp
+    image: "kai5263499/rhema-processor"
+    container_name: processor-1
+    build: 
+      context: ..
+      dockerfile: cmd/processor/Dockerfile
+volumes:
+  tmp-content:

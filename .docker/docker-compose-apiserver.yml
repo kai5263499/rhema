@@ -1,0 +1,19 @@
+version: '3'
+services:
+  apiserver:
+    profiles:
+    - apiserver
+    environment:
+    - REDIS_HOST=redis-1
+    - KAFKA_BROKERS=${LOCAL_IP}:9092
+    - KAFKA_SECURITY_PROTOCOL=plaintext
+    restart: always
+    image: "kai5263499/rhema-apiserver"
+    container_name: apiserver-1
+    ports:
+    - 8081:8080
+    build:
+      context: ..
+      dockerfile: cmd/apiserver/Dockerfile
+    extra_hosts:
+    - host.docker.internal:127.0.0.1

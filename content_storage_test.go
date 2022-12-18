@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"cloud.google.com/go/storage"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	"path/filepath"
@@ -26,14 +27,16 @@ var _ = Describe("content_storage", func() {
 	PIt("Should store the text file in GCP", func() {
 		var err error
 
-		cs, err := NewContentStorage("/tmp", "my-bucket", &placeholderGCPClient{}, false, "", 0600, false, nil, "")
+		cfg := &domain.Config{}
+
+		cs, err := NewContentStorage(cfg, nil)
 		Expect(err).To(BeNil())
 
 		requestContent := "this is the scraped text data from a url request"
 
 		newUUID := uuid.Must(uuid.NewV4())
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Created: 383576400,
 			Type:    pb.ContentType_TEXT,
 			Title:   newUUID.String(),
@@ -44,7 +47,7 @@ var _ = Describe("content_storage", func() {
 		fileName, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		txtFilename := filepath.Join(cs.localPath, fileName)
+		txtFilename := filepath.Join(cs.cfg.LocalPath, fileName)
 
 		err = os.MkdirAll(path.Dir(txtFilename), os.ModePerm)
 		Expect(err).To(BeNil())
@@ -52,7 +55,7 @@ var _ = Describe("content_storage", func() {
 		err = ioutil.WriteFile(txtFilename, []byte(ci.Text), 0644)
 		Expect(err).To(BeNil())
 
-		_, err = cs.Store(ci)
+		err = cs.Store(ci)
 		Expect(err).To(BeNil())
 
 		_, err = getPath(ci)

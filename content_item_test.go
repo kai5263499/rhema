@@ -23,7 +23,7 @@ type uriParseTest struct {
 }
 
 type pathTest struct {
-	req  pb.Request
+	req  *pb.Request
 	want string
 }
 
@@ -78,8 +78,8 @@ var _ = Describe("content_item", func() {
 	})
 	It("Should return the right local path", func() {
 		tests := []pathTest{
-			{req: pb.Request{Type: pb.ContentType_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
-			{req: pb.Request{Type: pb.ContentType_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
+			{req: &pb.Request{Type: pb.ContentType_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
+			{req: &pb.Request{Type: pb.ContentType_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
 		}
 
 		for _, tc := range tests {
@@ -90,8 +90,8 @@ var _ = Describe("content_item", func() {
 	})
 	It("Should return the right s3 path", func() {
 		tests := []pathTest{
-			{req: pb.Request{Type: pb.ContentType_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
-			{req: pb.Request{Type: pb.ContentType_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
+			{req: &pb.Request{Type: pb.ContentType_TEXT, Created: 383576400, Title: "test_title"}, want: "TEXT/1982/02/26/test_title.txt"},
+			{req: &pb.Request{Type: pb.ContentType_AUDIO, Created: 383576400, Title: "test_title"}, want: "AUDIO/1982/02/26/test_title.mp3"},
 		}
 
 		for _, tc := range tests {

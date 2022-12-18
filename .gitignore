@@ -20,3 +20,5 @@ helm/charts/*.tgz
 testOutput.xml
 active_profiles
 out*
+
+.docker/data

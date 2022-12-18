@@ -68,7 +68,7 @@ func hasContent(title string) bool {
 	return len(cleanTitle(title)) > 0
 }
 
-func getPath(req pb.Request) (string, error) {
+func getPath(req *pb.Request) (string, error) {
 	var err error
 
 	createdTime := time.Unix(int64(req.Created), 0)
@@ -91,7 +91,7 @@ func getPath(req pb.Request) (string, error) {
 }
 
 // GetFilePath returns the filename for a given Request
-func GetFilePath(req pb.Request) (string, error) {
+func GetFilePath(req *pb.Request) (string, error) {
 	ext, err := getExtFromType(req.Type)
 	if err != nil {
 		ext, err = getExtFromUri(req.Uri)

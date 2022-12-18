@@ -53,8 +53,8 @@ func (m *MqttComms) RequestChan() chan pb.Request {
 	return m.requestChan
 }
 
-func (m *MqttComms) SendRequest(req pb.Request) error {
-	pubBytes, err := proto.Marshal(&req)
+func (m *MqttComms) SendRequest(req *pb.Request) error {
+	pubBytes, err := proto.Marshal(req)
 	if err != nil {
 		logrus.WithError(err).Errorf("unable to marshal proto %+#v", req)
 		return err

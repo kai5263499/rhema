@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gofrs/uuid"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	. "github.com/onsi/ginkgo"
@@ -18,8 +19,8 @@ import (
 )
 
 type ytTest struct {
-	request pb.Request
-	wanted  pb.Request
+	request *pb.Request
+	wanted  *pb.Request
 }
 
 var processYTCmdInput func(args []string) (string, int)
@@ -58,7 +59,9 @@ var _ = Describe("youtube", func() {
 		newUUID := uuid.Must(uuid.NewV4())
 
 		yt := YouTube{
-			localPath:    "/tmp",
+			cfg: &domain.Config{
+				LocalPath: "/tmp",
+			},
 			execCommand:  fakeYTExecCommand,
 			scrape:       &textConverter{},
 			speedupAudio: &audioConverter{},
@@ -66,7 +69,7 @@ var _ = Describe("youtube", func() {
 
 		requestContent := "this is a test"
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Created:     383576400,
 			Type:        pb.ContentType_AUDIO,
 			Title:       newUUID.String(),
@@ -78,7 +81,7 @@ var _ = Describe("youtube", func() {
 		fileName, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		mp3Filename := filepath.Join(yt.localPath, fileName)
+		mp3Filename := filepath.Join(yt.cfg.LocalPath, fileName)
 
 		tmpFilename := fmt.Sprintf("%s%s", mp3Filename[:len(mp3Filename)-3], "flv")
 
@@ -94,10 +97,10 @@ var _ = Describe("youtube", func() {
 		err = os.MkdirAll(path.Dir(mp3Filename), os.ModePerm)
 		Expect(err).To(BeNil())
 
-		audioRequest, err := yt.Convert(ci)
+		err = yt.Convert(ci)
 		Expect(err).To(BeNil())
-		Expect(audioRequest.Type).To(Equal(pb.ContentType_AUDIO))
-		Expect(audioRequest.RequestHash).To(Equal(ci.RequestHash))
+		Expect(ci.Type).To(Equal(pb.ContentType_AUDIO))
+		Expect(ci.RequestHash).To(Equal(ci.RequestHash))
 
 		err = os.Remove(tmpFilename)
 		Expect(err).To(BeNil())

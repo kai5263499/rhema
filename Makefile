@@ -206,8 +206,64 @@ mock: $(MOQ_PATH)
 	@$(GO_PATH) generate ./...
 .PHONY: mock
 
-clean:
+clean: down
 	@rm -rf ./vendor
 	@rm -rf out
 	@find . -name "*.gen.go" -exec rm -rf {} \;
+	@rm -f $(ROOT_DIR)/active_profiles
 
+ALL_PROFILES:=psdb,redis,kafka,kafka-ui,ax-kafka-tools,jwt-generator,rbac-authz-postgres,rbac-authz-jwt-local,rbac-authz-jwt-dev,rabbitmq
+
+ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+
+OPTIONS?=""
+
+which = $(shell which $1 2> /dev/null || echo $1)
+
+# startup
+.PHONY: up
+up:
+	@cd $(ROOT_DIR) && \
+	COMPOSE_PROFILES="$$(cat active_profiles | tr '\n' ',' | sed 's/\(.*\),/\1/')" \
+	docker compose \
+	  -f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-contentbot.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-processor.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
+	  $$(echo "$(OPTIONS)") \
+	  up -d
+
+# shutdown
+.PHONY: down
+down:
+	@cd $(ROOT_DIR) && \
+	COMPOSE_PROFILES="$(ALL_PROFILES)" \
+	docker compose \
+	  -f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-contentbot.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-processor.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
+	  $$(echo "$(OPTIONS)") \
+	  down
+
+.PHONY: view
+view:
+	@echo "active profiles:"
+	@cat $(ROOT_DIR)/active_profiles
+
+.PHONY: reset
+reset: down up
+
+del-%:
+	@make del/$(subst del-,,$(@F))
+
+del/%:
+	@sed -i '/^$(subst del/,,$(@F))$$/d' $(ROOT_DIR)/active_profiles
+
+add-%:
+	@make add/$(subst add-,,$(@F))
+
+add/%:
+	@echo "$(subst add/,,$(@F))" >> $(ROOT_DIR)/active_profiles

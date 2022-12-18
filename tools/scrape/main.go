@@ -9,25 +9,18 @@ import (
 	"github.com/caarlos0/env/v6"
 	"github.com/gofrs/uuid"
 	. "github.com/kai5263499/rhema"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	"github.com/sirupsen/logrus"
 )
 
-type config struct {
-	AwsDefaultRegion string `env:"AWS_DEFAULT_REGION" envDefault:"us-east-1"`
-	MinTextBlockSize int    `env:"MIN_TEXT_BLOCK_SIZE" envDefault:"100"`
-	LocalPath        string `env:"LOCAL_PATH" envDefault:"/tmp"`
-	LogLevel         string `env:"LOG_LEVEL" envDefault:"info"`
-	TitleLengthLimit int    `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
-}
-
 var (
-	cfg config
+	cfg *domain.Config
 )
 
 func main() {
-	cfg = config{}
+	cfg = &domain.Config{}
 	if err := env.Parse(&cfg); err != nil {
 		logrus.WithError(err).Fatal("parse config")
 	}
@@ -42,12 +35,12 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	scrape := NewScrape(uint32(cfg.MinTextBlockSize), cfg.LocalPath, cfg.TitleLengthLimit)
+	scrape := NewScrape(cfg)
 
 	for _, arg := range os.Args[1:] {
 		newUUID := uuid.Must(uuid.NewV4())
 
-		req := pb.Request{
+		req := &pb.Request{
 			Title:       newUUID.String(),
 			Type:        pb.ContentType_URI,
 			Created:     uint64(time.Now().Unix()),
@@ -55,8 +48,7 @@ func main() {
 			RequestHash: newUUID.String(),
 		}
 
-		var scrapeConvertErr error
-		req, scrapeConvertErr = scrape.Convert(req)
+		scrapeConvertErr := scrape.Convert(req)
 		if scrapeConvertErr != nil {
 			logrus.WithError(scrapeConvertErr).Error("scrape convert")
 			continue

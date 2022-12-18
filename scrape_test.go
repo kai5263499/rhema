@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	. "github.com/onsi/ginkgo"
@@ -13,9 +14,9 @@ import (
 )
 
 type htmlScrapeTest struct {
-	request      pb.Request
+	request      *pb.Request
 	dataFilename string
-	wanted       pb.Request
+	wanted       *pb.Request
 }
 
 var _ = Describe("scrape", func() {
@@ -24,7 +25,9 @@ var _ = Describe("scrape", func() {
 		testText := "This should come from a file and contain real messy HTML examples"
 
 		scrape := Scrape{
-			localPath: "/tmp",
+			cfg: &domain.Config{
+				LocalPath: "/tmp",
+			},
 		}
 
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -32,31 +35,31 @@ var _ = Describe("scrape", func() {
 		}))
 		defer ts.Close()
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Created: 383576400,
 			Type:    pb.ContentType_URI,
 			Uri:     ts.URL,
 			Title:   "my title",
 		}
 
-		textRequest, err := scrape.Convert(ci)
+		err := scrape.Convert(ci)
 		Expect(err).To(BeNil())
 
-		Expect(textRequest.Text).To(Not(BeNil()))
-		Expect(textRequest.Title).To(Equal("my title"))
-		Expect(textRequest.Text).To(Equal(testText))
+		Expect(ci.Text).To(Not(BeNil()))
+		Expect(ci.Title).To(Equal("my title"))
+		Expect(ci.Text).To(Equal(testText))
 	})
 	It("Should perform complex scrapes using stored HTML", func() {
 
 		tests := []htmlScrapeTest{
 			{
-				request: pb.Request{
+				request: &pb.Request{
 					Created:     383576400,
 					RequestHash: "ABC123",
 					Type:        pb.ContentType_URI,
 				},
 				dataFilename: "testdata/ito.html",
-				wanted: pb.Request{
+				wanted: &pb.Request{
 					Created:     383576400,
 					RequestHash: "ABC123",
 					Type:        pb.ContentType_TEXT,
@@ -67,8 +70,10 @@ var _ = Describe("scrape", func() {
 		}
 
 		scrape := Scrape{
-			localPath:        "/tmp",
-			titleLengthLimit: 120,
+			cfg: &domain.Config{
+				LocalPath:        "/tmp",
+				TitleLengthLimit: 120,
+			},
 		}
 
 		for _, tc := range tests {
@@ -82,15 +87,15 @@ var _ = Describe("scrape", func() {
 
 			tc.request.Uri = ts.URL
 
-			textRequest, err := scrape.Convert(tc.request)
+			err = scrape.Convert(tc.request)
 			ts.Close()
 
 			Expect(err).To(BeNil())
 
-			Expect(textRequest.Text).To(Not(BeNil()))
-			Expect(textRequest.Title).To(Equal(tc.wanted.Title))
-			Expect(textRequest.Type).To(Equal(tc.wanted.Type))
-			Expect(textRequest.RequestHash).To(Equal(tc.wanted.RequestHash))
+			Expect(tc.request.Text).To(Not(BeNil()))
+			Expect(tc.request.Title).To(Equal(tc.wanted.Title))
+			Expect(tc.request.Type).To(Equal(tc.wanted.Type))
+			Expect(tc.request.RequestHash).To(Equal(tc.wanted.RequestHash))
 		}
 	})
 })
