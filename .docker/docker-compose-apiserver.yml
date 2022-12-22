@@ -5,7 +5,7 @@ services:
     - apiserver
     environment:
     - REDIS_HOST=redis-1
-    - KAFKA_BROKERS=${LOCAL_IP}:9092
+    - KAFKA_BROKERS=kafka-1:9092
     - KAFKA_SECURITY_PROTOCOL=plaintext
     restart: always
     image: "kai5263499/rhema-apiserver"

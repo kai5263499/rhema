@@ -4,7 +4,7 @@ info:
   title: rhemaapi
   description: Manage rhema assets
 servers:
-  - url: //host.docker.internal:8000
+  - url: //host.docker.internal:8080
   - url: //localhost:8080/v1
   - url: //localhost:8080
     description: local servers
@@ -40,7 +40,7 @@ paths:
   /request:
     post:
       tags: [v1,origin]
-      operationId: Install
+      operationId: Request
       parameters:
         - name: X-Forwarded-For
           in: header
@@ -107,17 +107,28 @@ components:
           description: Status Message
     Liveness:
       required:
-      - status
+      - health
+      - real_ip
       properties:
-        status:
+        health:
+          type: string
+        real_ip:
           type: string
     Readiness:
+      required:
+      - health
+      - real_ip
+      properties:
+        health:
+          $ref: "#/components/schemas/Health"
+        real_ip:
+          type: string
+    Health:
       description: https://github.com/gritzkoo/golang-health-checker
       required:
-      - name
       - status
-      - version
       - date
+      - duration
       - integrations
       properties:
         name:
@@ -129,33 +140,32 @@ components:
         date:
           type: string
         duration:
-          type: number
-          format: float
+          x-go-type: float64
         integrations:
           type: array
           items:
-            type: object
-            required:
-            - name
-            - kind
-            - status
-            - response_time
-            - url
-            properties:
-              name:
-                type: string
-              kind:
-                type: string
-              status:
-                type: boolean
-              response_time:
-                type: number
-                format: float
-              url:
-                type: string
-                format: uri
-              errors:
-                type: string
+            $ref: "#/components/schemas/HealthCheck"
+    HealthCheck:
+      required:
+      - name
+      - kind
+      - status
+      - response_time
+      - url
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+        status:
+          type: boolean
+        response_time:
+          x-go-type: float64
+        url:
+          type: string
+          format: uri
+        errors:
+          x-go-type: error
     RequestInput:
       required:
         - id
@@ -234,5 +244,3 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Readiness"
-
-    

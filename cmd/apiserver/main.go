@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -15,13 +16,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	cfg *domain.Config
-)
-
 func main() {
-	cfg = &domain.Config{}
-	if err := env.Parse(&cfg); err != nil {
+	cfg := &domain.Config{}
+	if err := env.Parse(cfg); err != nil {
 		log.WithError(err).Fatal("parse config")
 	}
 
@@ -33,22 +30,46 @@ func main() {
 
 	logrus.SetReportCaller(true)
 
+	speedupAudo := NewSpeedupAudio(cfg, exec.Command)
+	scrape := NewScrape(cfg)
+	text2mp3 := NewText2Mp3(cfg)
+	youtube := NewYoutube(cfg, scrape, speedupAudo)
+
 	redisConnStr := fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort)
-	log.Debugf("connecting to redis %s", redisConnStr)
+	logrus.Debugf("connecting to redis %s", redisConnStr)
 	redisConn, redisConnErr := redis.Dial("tcp", redisConnStr)
 	if redisConnErr != nil {
-		log.WithError(redisConnErr).Fatal("unable to connect to redis")
+		logrus.WithError(redisConnErr).Fatal("unable to connect to redis")
 	}
+
+	contentStorage, err := NewContentStorage(cfg, &redisConn)
+	if err != nil {
+		logrus.WithError(err).Fatal("new storage client")
+	}
+
+	requestProcessor := NewRequestProcessor(cfg,
+		scrape,
+		youtube,
+		text2mp3,
+		speedupAudo,
+		redisConn,
+		contentStorage,
+	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	api := NewApi(
+	api, err := NewApi(
 		ctx,
 		stop,
 		cfg,
 		redisConn,
+		requestProcessor,
+		contentStorage,
 	)
+	if err != nil {
+		logrus.WithError(err).Fatal("new api")
+	}
 
 	api.Start()
 

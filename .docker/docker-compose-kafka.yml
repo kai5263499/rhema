@@ -49,13 +49,15 @@ services:
       kafka:
         condition: service_healthy
   redpanda-console:
-      image: docker.redpanda.com/vectorized/console:latest
-      container_name: redpanda-console-1
-      environment:
-      - KAFKA_BROKERS=kafka-1:9092
-      ports:
-      - ${KAFKA_UI_PORT:-18080}:8080
-      restart: always
-      depends_on:
-        kafka:
-          condition: service_healthy
+    profiles:
+      - redpanda-console
+    image: docker.redpanda.com/vectorized/console:latest
+    container_name: redpanda-console-1
+    environment:
+    - KAFKA_BROKERS=kafka-1:9092
+    ports:
+    - ${KAFKA_UI_PORT:-18080}:8080
+    restart: always
+    depends_on:
+      kafka:
+        condition: service_healthy

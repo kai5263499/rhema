@@ -20,23 +20,25 @@ var (
 	processingKeyTTL = 30 * time.Second
 )
 
-func NewRequestProcessor(cfg *domain.Config, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, redisConn redis.Conn) *RequestProcessor {
+func NewRequestProcessor(cfg *domain.Config, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, redisConn redis.Conn, contentStorage domain.Storage) *RequestProcessor {
 	return &RequestProcessor{
-		youtube:      youtube,
-		scrape:       scrape,
-		text2mp3:     text2mp3,
-		speedupAudio: speedupAudio,
-		redisConn:    redisConn,
+		youtube:        youtube,
+		scrape:         scrape,
+		text2mp3:       text2mp3,
+		speedupAudio:   speedupAudio,
+		redisConn:      redisConn,
+		contentStorage: contentStorage,
 	}
 }
 
 type RequestProcessor struct {
-	cfg          *domain.Config
-	youtube      domain.Converter
-	scrape       domain.Converter
-	text2mp3     domain.Converter
-	speedupAudio domain.Converter
-	redisConn    redis.Conn
+	cfg            *domain.Config
+	youtube        domain.Converter
+	scrape         domain.Converter
+	text2mp3       domain.Converter
+	speedupAudio   domain.Converter
+	redisConn      redis.Conn
+	contentStorage domain.Storage
 }
 
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.ContentType {
@@ -154,7 +156,10 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 			return
 		}
 
-		// rp.comms.SendRequest(ci)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
 		return
 	case pb.ContentType_TEXT:
@@ -170,7 +175,10 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 			return
 		}
 
-		// rp.comms.SendRequest(ci3)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
 		return
 	case pb.ContentType_AUDIO:
@@ -184,7 +192,10 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 			return
 		}
 
-		// rp.comms.SendRequest(ci2)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
 		return
 	case pb.ContentType_VIDEO:
@@ -198,7 +209,10 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 			return
 		}
 
-		// rp.comms.SendRequest(ci2)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
 		return
 	default:
