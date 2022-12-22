@@ -120,9 +120,18 @@ func (a *Api) Ready(ctx echo.Context) error {
 }
 
 func (a *Api) Request(ctx echo.Context, params v1.RequestParams) error {
-	return nil
+	return newHTTPError(http.StatusNotImplemented)
 }
 
 func (a *Api) SaveResult(ctx echo.Context, params v1.SaveResultParams) error {
-	return nil
+	return newHTTPError(http.StatusNotImplemented)
+}
+
+func newHTTPError(code int, errs ...error) error {
+	if len(errs) == 0 {
+		return echo.NewHTTPError(code)
+	}
+	err := errs[0]
+
+	return echo.NewHTTPError(code).SetInternal(err)
 }

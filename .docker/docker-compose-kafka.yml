@@ -26,7 +26,6 @@ services:
     - --set
     - redpanda.enable_transactions=true
     image: docker.vectorized.io/vectorized/redpanda:v22.1.9
-    container_name: kafka-1
     healthcheck:
       test: "curl -s -o /dev/null http://localhost:8082/topics || exit 1"
       interval: 10s
@@ -52,7 +51,6 @@ services:
     profiles:
       - redpanda-console
     image: docker.redpanda.com/vectorized/console:latest
-    container_name: redpanda-console-1
     environment:
     - KAFKA_BROKERS=kafka-1:9092
     ports:

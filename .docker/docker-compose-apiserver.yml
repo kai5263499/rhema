@@ -9,7 +9,6 @@ services:
     - KAFKA_SECURITY_PROTOCOL=plaintext
     restart: always
     image: "kai5263499/rhema-apiserver"
-    container_name: apiserver-1
     ports:
     - 8081:8080
     build:

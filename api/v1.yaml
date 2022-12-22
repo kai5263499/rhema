@@ -39,8 +39,8 @@ paths:
           $ref: "#/components/responses/Readiness"
   /request:
     post:
-      tags: [v1,origin]
-      operationId: Request
+      tags: [v1]
+      operationId: SubmitRequest
       parameters:
         - name: X-Forwarded-For
           in: header
@@ -56,29 +56,12 @@ paths:
       responses:
         200:
           $ref: "#/components/responses/RequestOutput"
-        404:
-          description: Org Not Found 
-        420:
-          description: Purchased endpoint exceeded
-        429:
-          description: Too many request per IP Address
-        500:
-          description: Request failed
-        503:
-          description: Circuit Breaker Tripped
-        504:
-          description: api-internal Timeout
   /result:
-    post:
-      tags: [v1,origin]
-      operationId: SaveResult
+    get:
+      tags: [v1]
+      operationId: RetrieveResult
       parameters:
-        - name: X-SSL-CLIENT-S-DN
-          in: header
-          description: Required by PSBaseController
-          schema:
-            type: string
-        - name: async
+        - name: content
           in: query
           schema:
             type: boolean
@@ -88,7 +71,8 @@ paths:
             type: integer
       responses:
         200:
-          description: Save succeeded
+          description: Binary result of processed request
+          $ref: "#/components/responses/Binary"
         500:
           description: Internal Error
 components:
@@ -173,7 +157,7 @@ components:
       properties:
         type:
           type: string
-          pattern: ^(URI||YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
+          pattern: ^(URI|YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
         request_hash:
           type: string
         text:
@@ -213,20 +197,15 @@ components:
           type: string
     RequestOutput:
         required:
-          - id
+          - request_id
           - results
         properties:
-          agent_uuid:
+          request_id:
             type: string
-          id:
-            type: integer
-            format: uint64
           results:
             type: array
             items:
               type: string
-          command_type_name:
-            type: string
   requestBodies:
   responses:
     RequestOutput:
@@ -244,3 +223,9 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Readiness"
+    Binary:
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary

@@ -9,7 +9,6 @@ services:
     volumes: 
       - tmp-content:/tmp
     image: "kai5263499/rhema-processor"
-    container_name: processor-1
     build: 
       context: ..
       dockerfile: cmd/processor/Dockerfile
