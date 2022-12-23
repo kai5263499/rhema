@@ -52,7 +52,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RequestInput"
+              type: array
+              items:
+                $ref: "#/components/schemas/SubmitRequestInput"
       responses:
         200:
           $ref: "#/components/responses/RequestOutput"
@@ -162,7 +164,7 @@ components:
           format: uri
         errors:
           x-go-type: error
-    RequestInput:
+    SubmitRequestInput:
       required:
         - uri
       properties:

@@ -120,6 +120,7 @@ func (a *Api) Ready(ctx echo.Context) error {
 }
 
 func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) error {
+
 	return newHTTPError(http.StatusNotImplemented)
 }
 
