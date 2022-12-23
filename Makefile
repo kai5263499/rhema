@@ -174,11 +174,7 @@ internal/%/origin.gen.go: api/%.yaml
 	@$(OAPI_PATH) -package agentconfig -include-tags="$*" -generate client $< > $@
 
 api/v1: $(OAPI_PATH) \
-	v1/client.gen.go \
-	v1/types.gen.go \
-	internal/v1/origin.gen.go \
-	internal/v1/server.gen.go \
-	internal/v1/types.gen.go 
+	@$(GO_PATH) generate -v ./internal/v1/...
 .PHONY: api/v1
 
 unit/tests: test
