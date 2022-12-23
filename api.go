@@ -119,11 +119,15 @@ func (a *Api) Ready(ctx echo.Context) error {
 	})
 }
 
-func (a *Api) Request(ctx echo.Context, params v1.RequestParams) error {
+func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) error {
 	return newHTTPError(http.StatusNotImplemented)
 }
 
-func (a *Api) SaveResult(ctx echo.Context, params v1.SaveResultParams) error {
+func (a *Api) RetrieveResultContent(ctx echo.Context, params v1.RetrieveResultContentParams) error {
+	return newHTTPError(http.StatusNotImplemented)
+}
+
+func (a *Api) RetrieveResultStatus(ctx echo.Context, requestId string) error {
 	return newHTTPError(http.StatusNotImplemented)
 }
 
