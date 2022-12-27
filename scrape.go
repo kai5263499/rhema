@@ -85,7 +85,7 @@ func (s *Scrape) Convert(ci *pb.Request) error {
 		return err
 	}
 
-	if len(title) > 3 {
+	if len(title) > 3 && len(ci.Title) < 1 {
 		if s.cfg.TitleLengthLimit > 0 && uint32(len(title)) > s.cfg.TitleLengthLimit {
 			ci.Title = stringsx.Clean(title[:s.cfg.TitleLengthLimit])
 		} else {

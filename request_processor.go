@@ -22,6 +22,7 @@ var (
 
 func NewRequestProcessor(cfg *domain.Config, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, redisConn redis.Conn, contentStorage domain.Storage) *RequestProcessor {
 	return &RequestProcessor{
+		cfg:            cfg,
 		youtube:        youtube,
 		scrape:         scrape,
 		text2mp3:       text2mp3,
@@ -116,7 +117,9 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 				"uri": ci.Uri,
 			}).Warn("error parsing title from uri")
 		} else if len(parsedTitle) > 4 {
-			ci.Title = stringsx.Clean(parsedTitle)
+			if len(ci.Title) < 1 {
+				ci.Title = stringsx.Clean(parsedTitle)
+			}
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"err":         err,

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"cloud.google.com/go/storage"
+	gcpStorage "cloud.google.com/go/storage"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
@@ -19,8 +19,8 @@ import (
 
 type placeholderGCPClient struct{}
 
-func (c *placeholderGCPClient) Bucket(name string) *storage.BucketHandle {
-	return &storage.BucketHandle{}
+func (c *placeholderGCPClient) Bucket(name string) *gcpStorage.BucketHandle {
+	return &gcpStorage.BucketHandle{}
 }
 
 var _ = Describe("content_storage", func() {
@@ -29,7 +29,7 @@ var _ = Describe("content_storage", func() {
 
 		cfg := &domain.Config{}
 
-		cs, err := NewContentStorage(cfg, nil)
+		cs, err := NewContentStorage(cfg, nil, nil)
 		Expect(err).To(BeNil())
 
 		requestContent := "this is the scraped text data from a url request"
@@ -47,7 +47,7 @@ var _ = Describe("content_storage", func() {
 		fileName, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		txtFilename := filepath.Join(cs.cfg.LocalPath, fileName)
+		txtFilename := filepath.Join(cfg.LocalPath, fileName)
 
 		err = os.MkdirAll(path.Dir(txtFilename), os.ModePerm)
 		Expect(err).To(BeNil())

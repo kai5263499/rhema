@@ -28,19 +28,28 @@ type botCommand struct {
 	pattern glossa.Pattern
 }
 
-func NewBot(cfg *domain.Config) *Bot {
+func NewBot(cfg *domain.Config, comms domain.Comms) (*Bot, error) {
 	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
 
 	bot := &Bot{
 		cfg:      cfg,
 		patterns: make([]botCommand, 0),
 		cache:    cache.New(5*time.Minute, 10*time.Minute),
+		comms:    comms,
+		channels: make(map[string]*slack.Channel),
 	}
 
-	commands, _ := bot.initPatterns()
+	for _, channelName := range cfg.Channels {
+		bot.channels[channelName] = nil
+	}
+
+	commands, err := bot.initPatterns()
+	if err != nil {
+		return nil, err
+	}
 	bot.patterns = commands
 
-	return bot
+	return bot, nil
 }
 
 var (
@@ -48,13 +57,13 @@ var (
 )
 
 type Bot struct {
-	cfg           *domain.Config
-	api           *slack.Client
-	rtm           *slack.RTM
-	slackChannels []*slack.Channel
-	patterns      []botCommand
-	cache         *cache.Cache
-	comms         domain.Comms
+	cfg      *domain.Config
+	api      *slack.Client
+	rtm      *slack.RTM
+	patterns []botCommand
+	cache    *cache.Cache
+	comms    domain.Comms
+	channels map[string]*slack.Channel
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
@@ -266,33 +275,55 @@ func (b *Bot) slackReadLoop() {
 }
 
 func (b *Bot) joinChannels() {
-	b.slackChannels = make([]*slack.Channel, len(b.cfg.Channels))
-	for _, chanStr := range b.cfg.Channels {
-		channel, err := b.api.JoinChannel(chanStr)
+	for channelName, channel := range b.channels {
+
+		_, warning, warnings, err := b.api.JoinConversation(channel.ID)
+		logrus.Debugf("joinconversation warning=%s warnings=%v", warning, warnings)
 		if err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
-				"channel": chanStr,
+				"channel": channelName,
 			}).Error("failed to join channel")
 		} else {
 			logrus.WithFields(logrus.Fields{
-				"channel": chanStr,
+				"channel": channelName,
 			}).Debug("joined channel")
-			b.slackChannels = append(b.slackChannels, channel)
+
+			b.channels[channelName] = channel
+
+			logrus.Debugf("sending welcome message to channelName=%s channelID=%s", channel.Name, channel.ID)
+			b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s bot has entered the chat", SUCCESS_EMOJI), channel.ID))
 		}
 	}
 }
 
-func (b *Bot) Start() {
+func (b *Bot) Start() error {
 	logrus.Debug("connecting to slack")
 
 	b.api = slack.New(
 		b.cfg.SlackToken,
 	)
 
+	channels, _, err := b.api.GetConversations(&slack.GetConversationsParameters{
+		ExcludeArchived: true,
+		Limit:           100,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, channel := range channels {
+		if _, found := b.channels[channel.Name]; found {
+			b.channels[channel.Name] = &channel
+		}
+	}
+
 	b.rtm = b.api.NewRTM()
+
 	go b.rtm.ManageConnection()
 	b.joinChannels()
 	go b.slackReadLoop()
+
+	return nil
 }
 
 func (b *Bot) getConfig(key string, user *slack.User, channel string) {

@@ -12,14 +12,15 @@ import (
 )
 
 var (
-	cfg       *domain.Config
-	bot       *Bot
-	mqttComms *MqttComms
+	cfg   *domain.Config
+	bot   *Bot
+	comms domain.Comms
 )
 
 func main() {
+	var err error
 	cfg = &domain.Config{}
-	if err := env.Parse(&cfg); err != nil {
+	if err = env.Parse(cfg); err != nil {
 		logrus.WithError(err).Fatal("parse configs")
 	}
 
@@ -31,7 +32,15 @@ func main() {
 
 	logrus.SetReportCaller(true)
 
-	bot = NewBot(cfg)
+	comms, err = NewComms(cfg)
+	if err != nil {
+		logrus.WithError(err).Fatal("error creating comms")
+	}
+
+	bot, err = NewBot(cfg, comms)
+	if err != nil {
+		logrus.WithError(err).Fatal("error creating bot")
+	}
 	bot.Start()
 
 	c := make(chan os.Signal, 1)

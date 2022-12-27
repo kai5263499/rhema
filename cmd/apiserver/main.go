@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/boltdb/bolt"
 	"github.com/caarlos0/env/v6"
 	"github.com/gomodule/redigo/redis"
 	. "github.com/kai5263499/rhema"
@@ -28,7 +29,14 @@ func main() {
 		log.SetLevel(level)
 	}
 
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+
 	logrus.SetReportCaller(true)
+
+	boltdb, err := bolt.Open(cfg.BoltDBPath, 0600, nil)
+	if err != nil {
+		logrus.WithError(err).Fatalf("unable to open boltdb %s", cfg.BoltDBPath)
+	}
 
 	speedupAudo := NewSpeedupAudio(cfg, exec.Command)
 	scrape := NewScrape(cfg)
@@ -42,7 +50,7 @@ func main() {
 		logrus.WithError(redisConnErr).Fatal("unable to connect to redis")
 	}
 
-	contentStorage, err := NewContentStorage(cfg, &redisConn)
+	contentStorage, err := NewContentStorage(cfg, &redisConn, boltdb)
 	if err != nil {
 		logrus.WithError(err).Fatal("new storage client")
 	}

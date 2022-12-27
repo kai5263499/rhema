@@ -10,6 +10,9 @@ type Converter interface {
 
 type Storage interface {
 	Store(*pb.Request) error
+	Load(requestHash string) (*pb.Request, error)
+	ListAll() []*pb.Request
+	Close() error
 }
 
 type Processor interface {

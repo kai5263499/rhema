@@ -10,13 +10,14 @@ type Config struct {
 	TitleLengthLimit  uint32   `env:"TITLE_LENGTH_LIMIT" envDefault:"40"`
 	ChownTo           int      `env:"CHOWN_TO" envDefault:"1000"`
 	LogLevel          string   `env:"LOG_LEVEL" envDefault:"debug"`
-	LocalPath         string   `env:"LOCAL_PATH"`
-	RedisHost         string   `env:"REDIS_HOST"`
+	LocalPath         string   `env:"LOCAL_PATH" envDefault:"./.docker/data"`
+	RedisHost         string   `env:"REDIS_HOST" envDefault:"localhost"`
 	RedisPort         string   `env:"REDIS_PORT" envDefault:"6379"`
 	KafkaBrokers      string   `env:"KAFKA_BROKERS" envDefault:"localhost:9092"`
 	KafkaRequestTopic string   `env:"KAFKA_REQUESTS_TOPIC" envDefault:"rhema.requests"`
 	KafkaGroupId      string   `env:"KAFKA_GROUP_ID" envDefault:"rhema-processor"`
 	BoltDBPath        string   `env:"BOLTDB_PATH"`
+	BoltDBBucket      string   `env:"BOLTDB_BUCKET" envDefault:"content"`
 	SlackToken        string   `env:"SLACK_TOKEN"`
 	Channels          []string `env:"CHANNELS" envDefault:"content"`
 }

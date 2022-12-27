@@ -4,10 +4,8 @@ info:
   title: rhemaapi
   description: Manage rhema assets
 servers:
-  - url: //host.docker.internal:8080
   - url: //localhost:8080/v1
-  - url: //localhost:8080
-    description: local servers
+  - url: //host.docker.internal:8080/v1
 paths:
   /:
     get:
@@ -56,8 +54,9 @@ paths:
               items:
                 $ref: "#/components/schemas/SubmitRequestInput"
       responses:
-        200:
-          $ref: "#/components/responses/RequestOutput"
+        202:
+          $ref: "#/components/responses/SubmitRequestOutput"
+          description: Accepted content request for processing
   /status/{request_id}:
     get:
       tags: [v1]
@@ -70,25 +69,45 @@ paths:
             description: uuidv4
             pattern: ^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$
             example: c73bcdcc-2669-4bf6-81d3-e4ae73fb11fd
-  /result:
+      responses:
+        200:
+          $ref: "#/components/responses/SubmitRequestOutput"
+          description: Latest submited request output
+        404:
+          description: Request hash not found
+  /result/{type}/{request_id}:
     get:
       tags: [v1]
       operationId: RetrieveResultContent
       parameters:
-        - name: content
-          in: query
+        - name: request_id
+          in: path
           schema:
-            type: boolean
-        - name: diag
-          in: query
+            type: string
+            description: uuidv4
+            pattern: ^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$
+            example: c73bcdcc-2669-4bf6-81d3-e4ae73fb11fd
+        - name: type
+          in: path
           schema:
-            type: integer
+            type: string
+            description: content type
+            pattern: ^(URI|YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
+            example: AUDIO
       responses:
         200:
           description: Binary result of processed request
           $ref: "#/components/responses/Binary"
         500:
           description: Internal Error
+  /list-requests:
+    get:
+      tags: [v1]
+      operationId: ListAllRequests
+      responses:
+        200:
+          $ref: "#/components/responses/SubmitRequestOutput"
+          description: List of all submitted requests found in boltdb
 components:
   schemas:
     Status:
@@ -208,24 +227,8 @@ components:
           type: string
         storage_path:
           type: string
-    RequestOutput:
-        required:
-          - request_id
-          - results
-        properties:
-          request_id:
-            type: string
-          results:
-            type: array
-            items:
-              type: string
   requestBodies:
   responses:
-    RequestOutput:
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RequestOutput"      
     Liveness:
       content:
         application/json:
@@ -236,6 +239,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Readiness"
+    SubmitRequestOutput:
+      content:
+        application/json:
+          type: array
+          schema:
+            $ref: "#/components/schemas/SubmitRequestInput"
     Binary:
       content:
         application/octet-stream:
