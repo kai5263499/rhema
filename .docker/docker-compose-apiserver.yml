@@ -4,9 +4,8 @@ services:
     profiles:
     - apiserver
     environment:
-    - REDIS_HOST=redis-1
-    - KAFKA_BROKERS=kafka-1:9092
-    - KAFKA_SECURITY_PROTOCOL=plaintext
+    - BOLTDB_PATH=${BOLTDB_PATH}
+    - CAYLEY_STORAGE_PATH=${CAYLEY_STORAGE_PATH}
     restart: always
     image: "kai5263499/rhema-apiserver"
     ports:
@@ -14,5 +13,3 @@ services:
     build:
       context: ..
       dockerfile: cmd/apiserver/Dockerfile
-    extra_hosts:
-    - host.docker.internal:127.0.0.1

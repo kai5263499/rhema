@@ -5,14 +5,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/boltdb/bolt"
+	"github.com/cayleygraph/cayley"
+	"github.com/cayleygraph/cayley/graph"
+	_ "github.com/cayleygraph/cayley/graph/kv/bolt"
+	"github.com/cayleygraph/quad"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/gomodule/redigo/redis"
 )
 
 var _ domain.Storage = (*storage)(nil)
@@ -20,14 +23,29 @@ var _ domain.Storage = (*storage)(nil)
 // NewContentStorage returns an instance of ContentStorage
 func NewContentStorage(
 	cfg *domain.Config,
-	redisConn *redis.Conn,
-	boltdb *bolt.DB,
 ) (domain.Storage, error) {
 
+	err := graph.InitQuadStore("bolt", cfg.CayleyStoragePath, nil)
+	if err != nil {
+		if !strings.Contains(err.Error(), "exists") {
+			return nil, err
+		}
+	}
+
+	cayleyGraph, err := cayley.NewGraph("bolt", cfg.CayleyStoragePath, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	boltdb, err := bolt.Open(cfg.BoltDBPath, 0600, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	cs := &storage{
-		cfg:       cfg,
-		redisConn: redisConn,
-		boltdb:    boltdb,
+		cfg:         cfg,
+		cayleyGraph: cayleyGraph,
+		boltdb:      boltdb,
 	}
 
 	return cs, nil
@@ -35,9 +53,9 @@ func NewContentStorage(
 
 // ContentStorage persists content artifacts to S3
 type storage struct {
-	cfg       *domain.Config
-	redisConn *redis.Conn
-	boltdb    *bolt.DB
+	cfg         *domain.Config
+	cayleyGraph *cayley.Handle
+	boltdb      *bolt.DB
 }
 
 func copyFileContents(src, dst string) error {
@@ -76,7 +94,7 @@ func (cs *storage) Store(ci *pb.Request) (err error) {
 	logrus.Debugf("storing content item to %s", ci.StoragePath)
 
 	if ci.Type == pb.ContentType_AUDIO {
-		src := filepath.Join(cs.cfg.LocalPath, itemPath)
+		src := filepath.Join(cs.cfg.TmpPath, itemPath)
 		dst := filepath.Join(cs.cfg.LocalPath, filepath.Base(itemPath))
 
 		if err = os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
@@ -97,88 +115,120 @@ func (cs *storage) Store(ci *pb.Request) (err error) {
 		logrus.Debugf("%s -> %s", src, dst)
 	}
 
-	// serialize proto
-	protoBytes, err := proto.Marshal(ci)
+	err = InsertRequestIntoCayley(ci, cs.cayleyGraph)
 	if err != nil {
-		logrus.WithError(err).Errorf("error marshalling proto to bytes")
 		return
 	}
 
-	// TODO add entries to storage
-	err = cs.boltdb.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists([]byte(cs.cfg.BoltDBBucket))
-		if err != nil {
-			return err
-		}
+	err = InsertRequestIntoBolt(ci, cs.boltdb, cs.cfg.BoltDBBucket)
+	if err != nil {
+		return
+	}
 
-		if err = b.Put([]byte(ci.RequestHash), protoBytes); err != nil {
-			return err
-		}
-
-		return nil
-	})
+	logrus.Debugf("inserted requestHash=%s into both cayley and bolt", ci.RequestHash)
 
 	return
 }
 
-func (cs *storage) Close() error {
-	return cs.boltdb.Close()
+func InsertRequestIntoBolt(request *pb.Request, boltdb *bolt.DB, boltBucket string) error {
+	requestBytes, err := proto.Marshal(request)
+	if err != nil {
+		return err
+	}
+
+	return boltdb.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte(boltBucket))
+		if err != nil {
+			return err
+		}
+		if b == nil {
+			return fmt.Errorf("Bucket not found")
+		}
+
+		// Set the value at the given key
+		return b.Put([]byte(request.RequestHash), requestBytes)
+	})
+}
+
+func InsertRequestIntoCayley(request *pb.Request, cayley *cayley.Handle) error {
+	return cayley.AddQuad(quad.Make(request.RequestHash, "submittedBy", request.SubmittedBy, nil))
+}
+
+func (cs *storage) Close() (err error) {
+	err = cs.boltdb.Close()
+	err = cs.cayleyGraph.Close()
+	return
 }
 
 func (cs *storage) Load(requestHash string) (req *pb.Request, err error) {
-	var protoBytes []byte
-	req = &pb.Request{}
+	return ReadRequestFromBolt(requestHash, cs.boltdb, cs.cfg.BoltDBBucket)
+}
 
-	err = cs.boltdb.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(cs.cfg.BoltDBBucket))
-		if b == nil {
-			return fmt.Errorf("Bucket not found")
-		}
+func (cs *storage) ListAll() (requests []*pb.Request) {
+	var err error
+	requests = make([]*pb.Request, 0)
 
-		// Retrieve the value at key "greeting"
-		protoBytes = b.Get([]byte(requestHash))
-
-		return nil
-	})
+	requestHashes, err := ReadAllRequestHashesFromCayley(cs.cayleyGraph)
 	if err != nil {
 		return
 	}
 
-	if err = proto.Unmarshal(protoBytes, req); err != nil {
-		return
+	for _, requestHash := range requestHashes {
+		req, err := ReadRequestFromBolt(requestHash, cs.boltdb, cs.cfg.BoltDBBucket)
+		if err != nil {
+			return
+		}
+
+		requests = append(requests, req)
 	}
 
 	return
 }
 
-func (cs *storage) ListAll() []*pb.Request {
-	requests := make([]*pb.Request, 0)
+func ReadAllRequestHashesFromCayley(cayleyGraph *cayley.Handle) ([]string, error) {
+	// Create a slice to store the requestHashes
+	requestHashes := []string{}
 
-	if err := cs.boltdb.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(cs.cfg.BoltDBBucket))
+	// Use cayley.StartPath to query the graph for all nodes with the "Type" property
+	it := cayley.StartPath(cayleyGraph).Has("submittedBy").Iterate(nil)
+
+	// Iterate over the path and retrieve the requestHashes
+	err := it.EachValue(nil, func(value quad.Value) {
+		res := value.Native().(string)
+		requestHashes = append(requestHashes, res)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate over path: %v", err)
+	}
+
+	return requestHashes, nil
+}
+
+func ReadRequestFromBolt(requestHash string, boltDb *bolt.DB, boltDbBucket string) (request *pb.Request, err error) {
+	var requestBytes []byte
+
+	// Start a read-only transaction
+	err = boltDb.View(func(tx *bolt.Tx) error {
+		// Retrieve the bucket named "MyBucket"
+		b := tx.Bucket([]byte(boltDbBucket))
 		if b == nil {
 			return fmt.Errorf("Bucket not found")
 		}
 
-		// Iterate over all keys in the bucket
-		err := b.ForEach(func(k, v []byte) error {
-			req := &pb.Request{}
-			if err := proto.Unmarshal(v, req); err != nil {
-				return err
-			}
-
-			requests = append(requests, req)
-
-			return nil
-		})
-		if err != nil {
-			return err
+		// Retrieve the value at the given key
+		requestBytes = b.Get([]byte(requestHash))
+		if requestBytes == nil {
+			return fmt.Errorf("Key not found")
 		}
 
 		return nil
-	}); err != nil {
-		logrus.WithError(err).Errorf("error listing keys in boltdb")
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return requests
+	request = &pb.Request{}
+	err = proto.Unmarshal(requestBytes, request)
+
+	return
 }

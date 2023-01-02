@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/felixge/fgprof"
-	"github.com/gofrs/uuid"
-	"github.com/gomodule/redigo/redis"
 	"github.com/gritzkoo/golang-health-checker/pkg/healthcheck"
 	"github.com/kai5263499/rhema/domain"
 	"github.com/kai5263499/rhema/generated"
@@ -27,7 +24,6 @@ func NewApi(
 	shutdownContext context.Context,
 	shutdownCancelFunc context.CancelFunc,
 	cfg *domain.Config,
-	redisConn redis.Conn,
 	requestProcessor domain.Processor,
 	contentStorage domain.Storage,
 ) (*Api, error) {
@@ -40,7 +36,6 @@ func NewApi(
 		shutdownContext:    shutdownContext,
 		shutdownCancelFunc: shutdownCancelFunc,
 		cfg:                cfg,
-		redisConn:          redisConn,
 		requestProcessor:   requestProcessor,
 		contentStorage:     contentStorage,
 		echo:               e,
@@ -95,7 +90,6 @@ type Api struct {
 	shutdownContext    context.Context
 	shutdownCancelFunc context.CancelFunc
 	cfg                *domain.Config
-	redisConn          redis.Conn
 	requestProcessor   domain.Processor
 	contentStorage     domain.Storage
 	health             healthcheck.ApplicationConfig
@@ -142,12 +136,12 @@ func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) err
 		return newHTTPError(http.StatusBadRequest)
 	}
 
-	contentRequests := convertParamsToProto(&requests)
+	contentRequests := domain.ConvertParamsToProto(&requests)
 
 	responses := make([]*v1.SubmitRequestInput, len(requests))
 
 	for idx, contentRequest := range contentRequests {
-		responses[idx] = convertProtoToParams(contentRequest)
+		responses[idx] = domain.ConvertProtoToParams(contentRequest)
 
 		go func(cr *generated.Request) {
 			if err := a.requestProcessor.Process(cr); err != nil {
@@ -178,7 +172,7 @@ func (a *Api) RetrieveResultStatus(ctx echo.Context, requestId string) error {
 		return newHTTPError(http.StatusNotFound)
 	}
 
-	return ctx.JSON(http.StatusOK, convertProtoToParams(req))
+	return ctx.JSON(http.StatusOK, domain.ConvertProtoToParams(req))
 }
 
 func newHTTPError(code int, errs ...error) error {
@@ -190,64 +184,6 @@ func newHTTPError(code int, errs ...error) error {
 	return echo.NewHTTPError(code).SetInternal(err)
 }
 
-func convertParamsToProto(submitRequests *v1.SubmitRequestJSONRequestBody) (requests []*generated.Request) {
-	requests = make([]*generated.Request, len(*submitRequests))
-
-	for idx, submitRequest := range *submitRequests {
-		requests[idx] = &generated.Request{
-			RequestHash: uuid.Must(uuid.NewV4()).String(),
-			Uri:         submitRequest.Uri,
-			SubmittedAt: uint64(time.Now().UTC().Unix()),
-			Created:     uint64(time.Now().UTC().Unix()),
-		}
-
-		if submitRequest.Text != nil {
-			requests[idx].Text = *submitRequest.Text
-		}
-		if submitRequest.Title != nil {
-			requests[idx].Title = *submitRequest.Title
-		}
-		if submitRequest.EspeakVoice != nil {
-			requests[idx].ESpeakVoice = *submitRequest.EspeakVoice
-		}
-		if submitRequest.Atempo != nil {
-			requests[idx].ATempo = *submitRequest.Atempo
-		}
-		if submitRequest.WordsPerMinute != nil {
-			requests[idx].WordsPerMinute = *submitRequest.WordsPerMinute
-		}
-		if submitRequest.SubmittedBy != nil {
-			requests[idx].SubmittedBy = *submitRequest.SubmittedBy
-		}
-	}
-
-	return
-}
-
-func convertProtoToParams(r *generated.Request) (o *v1.SubmitRequestInput) {
-	contentType := r.Type.String()
-	o = &v1.SubmitRequestInput{
-		Uri:                 r.Uri,
-		RequestHash:         &r.RequestHash,
-		Title:               &r.Title,
-		Atempo:              &r.ATempo,
-		WordsPerMinute:      &r.WordsPerMinute,
-		Length:              &r.Length,
-		Size:                &r.Size,
-		Text:                &r.Text,
-		NumberOfConversions: &r.NumberOfConversions,
-		Type:                &contentType,
-		Created:             &r.Created,
-	}
-
-	if r.SubmittedAt > 0 {
-		submittedAt := int(r.SubmittedAt)
-		o.SubmittedAt = &submittedAt
-	}
-
-	return
-}
-
 // (GET /list-requests)
 func (a *Api) ListAllRequests(ctx echo.Context) error {
 	requests := a.contentStorage.ListAll()
@@ -255,7 +191,9 @@ func (a *Api) ListAllRequests(ctx echo.Context) error {
 	responses := make([]*v1.SubmitRequestInput, len(requests))
 
 	for idx, request := range requests {
-		responses[idx] = convertProtoToParams(request)
+		if request != nil {
+			responses[idx] = domain.ConvertProtoToParams(request)
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, responses)

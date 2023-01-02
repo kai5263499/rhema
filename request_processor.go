@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gomodule/redigo/redis"
 	"github.com/icza/gox/stringsx"
 	"github.com/sirupsen/logrus"
 
@@ -20,14 +19,13 @@ var (
 	processingKeyTTL = 30 * time.Second
 )
 
-func NewRequestProcessor(cfg *domain.Config, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, redisConn redis.Conn, contentStorage domain.Storage) *RequestProcessor {
+func NewRequestProcessor(cfg *domain.Config, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, contentStorage domain.Storage) *RequestProcessor {
 	return &RequestProcessor{
 		cfg:            cfg,
 		youtube:        youtube,
 		scrape:         scrape,
 		text2mp3:       text2mp3,
 		speedupAudio:   speedupAudio,
-		redisConn:      redisConn,
 		contentStorage: contentStorage,
 	}
 }
@@ -38,7 +36,6 @@ type RequestProcessor struct {
 	scrape         domain.Converter
 	text2mp3       domain.Converter
 	speedupAudio   domain.Converter
-	redisConn      redis.Conn
 	contentStorage domain.Storage
 }
 
@@ -69,7 +66,7 @@ func (rp *RequestProcessor) downloadUri(ci *pb.Request) error {
 		return err
 	}
 
-	urlFullFilename := filepath.Join(rp.cfg.LocalPath, urlFilename)
+	urlFullFilename := filepath.Join(rp.cfg.TmpPath, urlFilename)
 
 	if err := DownloadUriToFile(ci.Uri, urlFullFilename); err != nil {
 		return err
@@ -81,31 +78,6 @@ func (rp *RequestProcessor) downloadUri(ci *pb.Request) error {
 }
 
 func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
-	reqKey := ci.RequestHash + ":processed"
-	alreadyProcessed, redisErr := redis.Bool(rp.redisConn.Do("EXISTS", reqKey))
-	if redisErr != nil {
-		logrus.WithError(redisErr).WithFields(logrus.Fields{
-			"reqKey": reqKey,
-		}).Error("error checking key in redis")
-		err = redisErr
-		return
-	}
-
-	if alreadyProcessed {
-		return
-	}
-
-	defer func() {
-		if err := rp.redisConn.Send("SETEX", reqKey, processingKeyTTL.Seconds(), true); err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{
-				"reqKey": reqKey,
-			}).Error("error setting redis key")
-		}
-		if err := rp.redisConn.Flush(); err != nil {
-			logrus.WithError(err).Error("error flushing redis")
-		}
-	}()
-
 	if ci.Type == pb.ContentType_URI {
 		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 

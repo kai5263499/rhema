@@ -32,7 +32,7 @@ func (sa *SpeedupAudio) Convert(ci *pb.Request) error {
 		return err
 	}
 
-	slowFullFilename := filepath.Join(sa.cfg.LocalPath, slowFilename)
+	slowFullFilename := filepath.Join(sa.cfg.TmpPath, slowFilename)
 	tmpFullFilename := fmt.Sprintf("%s%s", slowFullFilename[:len(slowFullFilename)-4], "-TMP.mp3")
 
 	ffmpegCmd := sa.execCommand("ffmpeg",
@@ -56,7 +56,7 @@ func (sa *SpeedupAudio) Convert(ci *pb.Request) error {
 		return err
 	}
 
-	mp3FullFilename := filepath.Join(sa.cfg.LocalPath, mp3FileName)
+	mp3FullFilename := filepath.Join(sa.cfg.TmpPath, mp3FileName)
 
 	if err := os.Rename(tmpFullFilename, mp3FullFilename); err != nil {
 		return err

@@ -51,7 +51,7 @@ func (yt *YouTube) Convert(ci *pb.Request) error {
 		return err
 	}
 
-	mp3FullFilename := filepath.Join(yt.cfg.LocalPath, fileName)
+	mp3FullFilename := filepath.Join(yt.cfg.TmpPath, fileName)
 
 	mp3FullFilename = fmt.Sprintf("%s%s", mp3FullFilename[:len(mp3FullFilename)-4], "")
 

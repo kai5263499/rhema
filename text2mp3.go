@@ -45,7 +45,7 @@ func (tm *Text2Mp3) Convert(ci *pb.Request) (err error) {
 		return
 	}
 
-	txtFullFilename := filepath.Join(tm.cfg.LocalPath, txtFilename)
+	txtFullFilename := filepath.Join(tm.cfg.TmpPath, txtFilename)
 
 	ci.Type = pb.ContentType_AUDIO
 
@@ -54,7 +54,7 @@ func (tm *Text2Mp3) Convert(ci *pb.Request) (err error) {
 		return
 	}
 
-	mp3FullFilename := filepath.Join(tm.cfg.LocalPath, mp3Filename)
+	mp3FullFilename := filepath.Join(tm.cfg.TmpPath, mp3Filename)
 	wavFullFilename := fmt.Sprintf("%s%s", mp3FullFilename[:len(mp3FullFilename)-3], "wav")
 
 	if err = os.MkdirAll(path.Dir(txtFullFilename), os.ModePerm); err != nil {

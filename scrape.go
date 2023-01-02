@@ -106,7 +106,7 @@ func (s *Scrape) Convert(ci *pb.Request) error {
 		return err
 	}
 
-	fullFilename := filepath.Join(s.cfg.LocalPath, localFilename)
+	fullFilename := filepath.Join(s.cfg.TmpPath, localFilename)
 	if err != nil {
 		return err
 	}

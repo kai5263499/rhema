@@ -29,7 +29,7 @@ var _ = Describe("content_storage", func() {
 
 		cfg := &domain.Config{}
 
-		cs, err := NewContentStorage(cfg, nil, nil)
+		cs, err := NewContentStorage(cfg)
 		Expect(err).To(BeNil())
 
 		requestContent := "this is the scraped text data from a url request"

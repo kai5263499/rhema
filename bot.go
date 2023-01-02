@@ -1,6 +1,7 @@
 package rhema
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/kai5263499/glossa"
+	"github.com/kai5263499/rhema/client"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/patrickmn/go-cache"
@@ -28,14 +30,13 @@ type botCommand struct {
 	pattern glossa.Pattern
 }
 
-func NewBot(cfg *domain.Config, comms domain.Comms) (*Bot, error) {
+func NewBot(cfg *domain.Config) (*Bot, error) {
 	URL_REGEXP = regexp.MustCompile("(?m)(http[^ <>\n]*)")
 
 	bot := &Bot{
 		cfg:      cfg,
 		patterns: make([]botCommand, 0),
 		cache:    cache.New(5*time.Minute, 10*time.Minute),
-		comms:    comms,
 		channels: make(map[string]*slack.Channel),
 	}
 
@@ -62,30 +63,50 @@ type Bot struct {
 	rtm      *slack.RTM
 	patterns []botCommand
 	cache    *cache.Cache
-	comms    domain.Comms
 	channels map[string]*slack.Channel
 }
 
 func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bool) {
-	newUUID := uuid.Must(uuid.NewV4())
 
-	contentRequest := &pb.Request{
-		Uri:         uri,
-		Type:        pb.ContentType_URI,
-		Title:       newUUID.String(),
-		SubmittedBy: user.Name,
-		SubmittedAt: uint64(time.Now().UTC().Unix()),
-		Created:     uint64(time.Now().UTC().Unix()),
-		RequestHash: newUUID.String(),
-	}
+	logrus.Debugf("sending request for %s", uri)
 
-	if err := b.comms.SendRequest(contentRequest); err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request for processing `%s` err=%+#v", FAILURE_EMOJI, user.Name, uri, err), channel))
+	processorClient, err := client.NewClientWithResponses(b.cfg.RequestProcessorUri)
+	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
 			"uri": uri,
-		}).Error("send request")
+		}).Error("error creating processor client")
 		return
 	}
+
+	sri := client.SubmitRequestInput{
+		Uri: uri,
+	}
+
+	contentType := pb.ContentType_URI.String()
+	sri.Type = &contentType
+
+	uuid1 := uuid.Must(uuid.NewV4()).String()
+	sri.Title = &uuid1
+
+	sri.SubmittedBy = &user.Name
+
+	now := uint64(time.Now().UTC().Unix())
+	intnow := int(now)
+
+	sri.SubmittedAt = &intnow
+	sri.Created = &now
+
+	uuid2 := uuid.Must(uuid.NewV4()).String()
+	sri.RequestHash = &uuid2
+
+	resp, err := processorClient.SubmitRequestWithResponse(context.Background(), nil, []client.SubmitRequestInput{
+		sri,
+	})
+	if err != nil {
+		return
+	}
+
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> submitted uri %s has request hash of %s", SUCCESS_EMOJI, user.Name, uri, *resp.JSON202.RequestHash), channel))
 }
 
 func (b *Bot) processMessage(ev *slack.MessageEvent) {
@@ -150,9 +171,35 @@ func (b *Bot) processMessage(ev *slack.MessageEvent) {
 }
 
 func (b *Bot) processUploadRequest(ci *pb.Request, user *slack.User, channel string) {
-	if err := b.comms.SendRequest(ci); err != nil {
-		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> I failed to send request to the processor err=%+#v", FAILURE_EMOJI, user.Name, err), channel))
-		logrus.WithError(err).Error("send request")
+	processorClient, err := client.NewClientWithResponses(b.cfg.RequestProcessorUri)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"requestHash": ci.RequestHash,
+		}).Error("error creating processor client")
+		return
+	}
+
+	sri := client.SubmitRequestInput{
+		RequestHash:   &ci.RequestHash,
+		Title:         &ci.Title,
+		Text:          &ci.Text,
+		Uri:           ci.Uri,
+		SubmittedBy:   &user.Name,
+		SubmittedWith: &ci.SubmittedWith,
+	}
+
+	contentType := pb.ContentType_TEXT.String()
+	sri.Type = &contentType
+
+	now := uint64(time.Now().UTC().Unix())
+	intnow := int(now)
+	sri.SubmittedAt = &intnow
+
+	_, err = processorClient.SubmitRequestWithResponse(context.Background(), nil, []client.SubmitRequestInput{
+		sri,
+	})
+	if err != nil {
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> Error sending your request to the processor", FAILURE_EMOJI, user.Name), channel))
 		return
 	}
 
@@ -252,10 +299,12 @@ func (b *Bot) slackReadLoop() {
 		select {
 		case msg := <-b.rtm.IncomingEvents:
 			logrus.Debugf("event received %#v", msg)
-
 			switch ev := msg.Data.(type) {
 			case *slack.ConnectedEvent:
 				logrus.Infof("Connection counter: %d", ev.ConnectionCount)
+				for _, channel := range b.channels {
+					b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s I'm connected now with connection count %d", SUCCESS_EMOJI, ev.ConnectionCount), channel.ID))
+				}
 			case *slack.MessageEvent:
 				logrus.Debug("message event received!")
 				go b.processMessage(ev)
@@ -275,9 +324,8 @@ func (b *Bot) slackReadLoop() {
 }
 
 func (b *Bot) joinChannels() {
-	for channelName, channel := range b.channels {
-
-		_, warning, warnings, err := b.api.JoinConversation(channel.ID)
+	for channelName, origChan := range b.channels {
+		channel, warning, warnings, err := b.api.JoinConversation(origChan.ID)
 		logrus.Debugf("joinconversation warning=%s warnings=%v", warning, warnings)
 		if err != nil {
 			logrus.WithError(err).WithFields(logrus.Fields{
@@ -289,15 +337,15 @@ func (b *Bot) joinChannels() {
 			}).Debug("joined channel")
 
 			b.channels[channelName] = channel
-
-			logrus.Debugf("sending welcome message to channelName=%s channelID=%s", channel.Name, channel.ID)
-			b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s bot has entered the chat", SUCCESS_EMOJI), channel.ID))
 		}
+
+		logrus.Debugf("sending welcome message to channelName=%s channelID=%s", channel.Name, channel.ID)
+		b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s bot has entered the chat", SUCCESS_EMOJI), channel.ID))
 	}
 }
 
 func (b *Bot) Start() error {
-	logrus.Debug("connecting to slack")
+	logrus.Debugf("connecting to slack with token %s", b.cfg.SlackToken)
 
 	b.api = slack.New(
 		b.cfg.SlackToken,

@@ -30,14 +30,11 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+
 	logrus.SetReportCaller(true)
 
-	comms, err = NewComms(cfg)
-	if err != nil {
-		logrus.WithError(err).Fatal("error creating comms")
-	}
-
-	bot, err = NewBot(cfg, comms)
+	bot, err = NewBot(cfg)
 	if err != nil {
 		logrus.WithError(err).Fatal("error creating bot")
 	}
