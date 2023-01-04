@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/caarlos0/env/v6"
-	"github.com/gofrs/uuid"
+	"github.com/kai5263499/rhema/client"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/sirupsen/logrus"
@@ -27,23 +29,48 @@ func main() {
 		logrus.SetLevel(level)
 	}
 
-	for _, arg := range os.Args[1:] {
-		newUUID := uuid.Must(uuid.NewV4())
+	processorClient, err := client.NewClientWithResponses(cfg.RequestProcessorUri)
+	if err != nil {
+		logrus.WithError(err).Error("error creating processor client")
+		return
+	}
 
-		req := &pb.Request{
-			Title:          newUUID.String(),
-			Type:           pb.ContentType_URI,
-			Created:        uint64(time.Now().Unix()),
+	sri := []client.SubmitRequestInput{}
+
+	for _, arg := range os.Args[1:] {
+		ri := client.SubmitRequestInput{
 			Uri:            arg,
-			RequestHash:    newUUID.String(),
-			SubmittedBy:    cfg.SubmittedWith,
-			SubmittedAt:    uint64(time.Now().Unix()),
-			ATempo:         cfg.Atempo,
-			WordsPerMinute: cfg.WordsPerMinute,
-			ESpeakVoice:    cfg.EspeakVoice,
-			SubmittedWith:  cfg.SubmittedWith,
+			Atempo:         &cfg.Atempo,
+			WordsPerMinute: &cfg.WordsPerMinute,
+			EspeakVoice:    &cfg.EspeakVoice,
+			SubmittedWith:  &cfg.SubmittedWith,
 		}
 
-		logrus.Infof("request successfully submitted to processor %+#v", req)
+		contentType := pb.ContentType_URI.String()
+		ri.Type = &contentType
+
+		now := uint64(time.Now().UTC().Unix())
+		intnow := int(now)
+		ri.SubmittedAt = &intnow
+
+		sri = append(sri, ri)
 	}
+
+	logrus.Debugf("submitting %d requests to %s", len(sri), cfg.RequestProcessorUri)
+
+	resp, err := processorClient.SubmitRequestWithResponse(context.Background(), &client.SubmitRequestParams{}, sri)
+	if err != nil {
+		logrus.WithError(err).Error("error sending request")
+		return
+	}
+
+	if resp.StatusCode() != http.StatusAccepted {
+		logrus.WithFields(logrus.Fields{
+			"status_code": resp.StatusCode(),
+			"body":        string(resp.Body),
+		}).Error("error with request response")
+		return
+	}
+
+	logrus.Infof("successfully submitted %d requests", len(sri))
 }

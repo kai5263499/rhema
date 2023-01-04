@@ -239,7 +239,13 @@ func (b *Bot) processFileUpload(ev *slack.FileSharedEvent) {
 	}
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", file.URLPrivate, nil)
+	req, err := http.NewRequest("GET", file.URLPrivate, nil)
+	if err != nil {
+		logrus.WithError(err).WithFields(logrus.Fields{
+			"fileId": ev.File.ID,
+		}).Error("error creating GET request to retrieve file")
+		return
+	}
 	req.Header.Set("Authorization", "Bearer "+b.cfg.SlackToken)
 	resp, err := client.Do(req)
 	if err != nil {
