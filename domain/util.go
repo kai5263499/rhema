@@ -43,9 +43,33 @@ func ConvertParamsToProto(submitRequests *v1.SubmitRequestJSONRequestBody) (requ
 	return
 }
 
-func ConvertProtoToParams(r *generated.Request) (o *v1.SubmitRequestInput) {
+func ConvertProtoToInputParams(r *generated.Request) (o *v1.SubmitRequestInput) {
 	contentType := r.Type.String()
 	o = &v1.SubmitRequestInput{
+		Uri:                 r.Uri,
+		RequestHash:         &r.RequestHash,
+		Title:               &r.Title,
+		Atempo:              &r.ATempo,
+		WordsPerMinute:      &r.WordsPerMinute,
+		Length:              &r.Length,
+		Size:                &r.Size,
+		Text:                &r.Text,
+		NumberOfConversions: &r.NumberOfConversions,
+		Type:                &contentType,
+		Created:             &r.Created,
+	}
+
+	if r.SubmittedAt > 0 {
+		submittedAt := int(r.SubmittedAt)
+		o.SubmittedAt = &submittedAt
+	}
+
+	return
+}
+
+func ConvertProtoToOutputParams(r *generated.Request) (o *v1.SubmitRequestInput) {
+	contentType := r.Type.String()
+	o = &v1.SubmitRequestOutput{
 		Uri:                 r.Uri,
 		RequestHash:         &r.RequestHash,
 		Title:               &r.Title,

@@ -138,10 +138,10 @@ func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) err
 
 	contentRequests := domain.ConvertParamsToProto(&requests)
 
-	responses := make([]*v1.SubmitRequestInput, len(requests))
+	responses := make([]*v1.SubmitRequestOutput, len(requests))
 
 	for idx, contentRequest := range contentRequests {
-		responses[idx] = domain.ConvertProtoToParams(contentRequest)
+		responses[idx] = domain.ConvertProtoToOutputParams(contentRequest)
 
 		go func(cr *generated.Request) {
 			if err := a.requestProcessor.Process(cr); err != nil {
@@ -172,7 +172,7 @@ func (a *Api) RetrieveResultStatus(ctx echo.Context, requestId string) error {
 		return newHTTPError(http.StatusNotFound)
 	}
 
-	return ctx.JSON(http.StatusOK, domain.ConvertProtoToParams(req))
+	return ctx.JSON(http.StatusOK, domain.ConvertProtoToOutputParams(req))
 }
 
 func newHTTPError(code int, errs ...error) error {
@@ -188,11 +188,11 @@ func newHTTPError(code int, errs ...error) error {
 func (a *Api) ListAllRequests(ctx echo.Context) error {
 	requests := a.contentStorage.ListAll()
 
-	responses := make([]*v1.SubmitRequestInput, len(requests))
+	responses := make([]*v1.SubmitRequestOutput, len(requests))
 
 	for idx, request := range requests {
 		if request != nil {
-			responses[idx] = domain.ConvertProtoToParams(request)
+			responses[idx] = domain.ConvertProtoToOutputParams(request)
 		}
 	}
 
