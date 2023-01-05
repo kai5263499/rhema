@@ -106,7 +106,12 @@ func (b *Bot) processUri(uri string, user *slack.User, channel string, upload bo
 		return
 	}
 
-	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> submitted uri %s has request hash of %s", SUCCESS_EMOJI, user.Name, uri, *resp.JSON202.RequestHash), channel))
+	requestHash := ""
+	if resp.JSON202 != nil && len(*resp.JSON202) > 0 {
+		requestHash = *(*resp.JSON202)[0].RequestHash
+	}
+
+	b.rtm.SendMessage(b.rtm.NewOutgoingMessage(fmt.Sprintf("%s <@%s> submitted uri %s has request hash of %s", SUCCESS_EMOJI, user.Name, uri, requestHash), channel))
 }
 
 func (b *Bot) processMessage(ev *slack.MessageEvent) {

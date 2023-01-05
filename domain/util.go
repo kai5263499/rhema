@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"github.com/kai5263499/rhema/client"
 	"github.com/kai5263499/rhema/generated"
 	v1 "github.com/kai5263499/rhema/internal/v1"
 )
@@ -67,45 +66,30 @@ func ConvertProtoToInputParams(r *generated.Request) (o *v1.SubmitRequestInput) 
 	return
 }
 
-func ConvertProtoToOutputParams(r *generated.Request) (o *v1.SubmitRequestInput) {
-	contentType := r.Type.String()
-	o = &v1.SubmitRequestOutput{
-		Uri:                 r.Uri,
-		RequestHash:         &r.RequestHash,
-		Title:               &r.Title,
-		Atempo:              &r.ATempo,
-		WordsPerMinute:      &r.WordsPerMinute,
-		Length:              &r.Length,
-		Size:                &r.Size,
-		Text:                &r.Text,
-		NumberOfConversions: &r.NumberOfConversions,
-		Type:                &contentType,
-		Created:             &r.Created,
-	}
+func ConvertProtoToOutputParams(r *generated.Request) (o *v1.SubmitRequestOutput) {
 
+	contentType := r.Type.String()
+	submittedAt := 0
 	if r.SubmittedAt > 0 {
-		submittedAt := int(r.SubmittedAt)
-		o.SubmittedAt = &submittedAt
+		submittedAt = int(r.SubmittedAt)
 	}
 
-	return
-}
-
-func ConvertProtoToClientInputRequest(r *generated.Request) (o *client.SubmitRequestInput) {
-	contentType := r.Type.String()
-
-	o = &client.SubmitRequestInput{
-		Uri:                 r.Uri,
-		RequestHash:         &r.RequestHash,
-		Title:               &r.Title,
-		Atempo:              &r.ATempo,
-		WordsPerMinute:      &r.WordsPerMinute,
-		Length:              &r.Length,
-		Size:                &r.Size,
-		Text:                &r.Text,
-		NumberOfConversions: &r.NumberOfConversions,
-		Type:                &contentType,
-		Created:             &r.Created,
+	o = &v1.SubmitRequestOutput{
+		{
+			Uri:                 r.Uri,
+			RequestHash:         &r.RequestHash,
+			Title:               &r.Title,
+			Atempo:              &r.ATempo,
+			WordsPerMinute:      &r.WordsPerMinute,
+			Length:              &r.Length,
+			Size:                &r.Size,
+			Text:                &r.Text,
+			NumberOfConversions: &r.NumberOfConversions,
+			Type:                &contentType,
+			Created:             &r.Created,
+			SubmittedAt:         &submittedAt,
+		},
 	}
+
 	return
 }

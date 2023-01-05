@@ -242,9 +242,10 @@ components:
     SubmitRequestOutput:
       content:
         application/json:
-          type: array
           schema:
-            $ref: "#/components/schemas/SubmitRequestInput"
+            type: array
+            items:
+              $ref: "#/components/schemas/SubmitRequestInput"
     Binary:
       content:
         application/octet-stream:
