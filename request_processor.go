@@ -2,6 +2,9 @@ package rhema
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -119,6 +122,7 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 
 	switch ci.Type {
 	case pb.ContentType_YOUTUBE:
+		logrus.Debugf("converting youtube")
 		err = rp.youtube.Convert(ci)
 		if err != nil {
 			logrus.WithError(err).Error("error with youtube")
@@ -143,6 +147,36 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 				logrus.WithError(err).Error("error with text")
 				return
 			}
+		}
+
+		if len(ci.Title) < 1 {
+			// Use the first 64 characters from the text as the title
+			ci.Title = ci.Text[:64]
+		}
+
+		if ci.Length < 1 {
+			ci.Length = uint64(len(ci.Text))
+		}
+
+		if ci.Size < 1 {
+			ci.Length = uint64(len(ci.Text))
+		}
+
+		var localFilename string
+		localFilename, err = GetFilePath(ci)
+		if err != nil {
+			return
+		}
+
+		fullFilename := filepath.Join(rp.cfg.TmpPath, localFilename)
+
+		err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm)
+		if err != nil {
+			return err
+		}
+
+		if err = ioutil.WriteFile(fullFilename, []byte(ci.Text), 0644); err != nil {
+			return err
 		}
 
 		if err = rp.text2mp3.Convert(ci); err != nil {

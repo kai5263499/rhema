@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/kai5263499/rhema/generated"
+	pb "github.com/kai5263499/rhema/generated"
 	v1 "github.com/kai5263499/rhema/internal/v1"
 )
 
@@ -19,22 +20,23 @@ func ConvertParamsToProto(submitRequests *v1.SubmitRequestJSONRequestBody) (requ
 			Created:     uint64(time.Now().UTC().Unix()),
 		}
 
-		if submitRequest.Text != nil {
+		if submitRequest.Text != nil && len(*submitRequest.Text) > 0 {
 			requests[idx].Text = *submitRequest.Text
+			requests[idx].Type = pb.ContentType_TEXT
 		}
-		if submitRequest.Title != nil {
+		if submitRequest.Title != nil && len(*submitRequest.Title) > 0 {
 			requests[idx].Title = *submitRequest.Title
 		}
-		if submitRequest.EspeakVoice != nil {
+		if submitRequest.EspeakVoice != nil && len(*submitRequest.EspeakVoice) > 0 {
 			requests[idx].ESpeakVoice = *submitRequest.EspeakVoice
 		}
-		if submitRequest.Atempo != nil {
+		if submitRequest.Atempo != nil && len(*submitRequest.Atempo) > 0 {
 			requests[idx].ATempo = *submitRequest.Atempo
 		}
-		if submitRequest.WordsPerMinute != nil {
+		if submitRequest.WordsPerMinute != nil && *submitRequest.WordsPerMinute > 0 {
 			requests[idx].WordsPerMinute = *submitRequest.WordsPerMinute
 		}
-		if submitRequest.SubmittedBy != nil {
+		if submitRequest.SubmittedBy != nil && len(*submitRequest.SubmittedBy) > 0 {
 			requests[idx].SubmittedBy = *submitRequest.SubmittedBy
 		}
 	}
