@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gofrs/uuid"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	. "github.com/onsi/ginkgo"
@@ -58,15 +59,17 @@ var _ = Describe("text2mp3", func() {
 		newUUID := uuid.Must(uuid.NewV4())
 
 		tm := Text2Mp3{
-			localPath:      "/tmp",
-			execCommand:    fakeExecCommand,
-			wordsPerMinute: 350,
-			espeakVoice:    "f5",
+			cfg: &domain.Config{
+				LocalPath:      "/tmp",
+				WordsPerMinute: 350,
+				EspeakVoice:    "f5",
+			},
+			execCommand: fakeExecCommand,
 		}
 
 		requestContent := "this is a test"
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Created: 383576400,
 			Type:    pb.ContentType_TEXT,
 			Title:   newUUID.String(),
@@ -77,7 +80,7 @@ var _ = Describe("text2mp3", func() {
 		txtFilename, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		txtFullFilename := filepath.Join(tm.localPath, txtFilename)
+		txtFullFilename := filepath.Join(tm.cfg.LocalPath, txtFilename)
 
 		ci.Type = pb.ContentType_AUDIO
 		mp3FileName, err := GetFilePath(ci)
@@ -85,7 +88,7 @@ var _ = Describe("text2mp3", func() {
 
 		ci.Type = pb.ContentType_TEXT
 
-		mp3FullFilename := filepath.Join(tm.localPath, mp3FileName)
+		mp3FullFilename := filepath.Join(tm.cfg.LocalPath, mp3FileName)
 		wavFullFilename := fmt.Sprintf("%s%s", mp3FullFilename[:len(mp3FullFilename)-3], "wav")
 
 		err = os.MkdirAll(path.Dir(txtFullFilename), os.ModePerm)
@@ -106,9 +109,9 @@ var _ = Describe("text2mp3", func() {
 		err = ioutil.WriteFile(mp3FullFilename, []byte("test"), 0644)
 		Expect(err).To(BeNil())
 
-		audioRequest, err := tm.Convert(ci)
+		err = tm.Convert(ci)
 		Expect(err).To(BeNil())
-		Expect(audioRequest.Type).To(Equal(pb.ContentType_AUDIO))
+		Expect(ci.Type).To(Equal(pb.ContentType_AUDIO))
 
 		err = os.Remove(txtFullFilename)
 		Expect(err).To(BeNil())

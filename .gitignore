@@ -1,7 +1,10 @@
+.DS_Store
 vendor
+.vscode
 
-mosquitto.conf
-environ.rc
+*.conf
+*.rc
+*.env
 
 redis-backup
 
@@ -10,13 +13,12 @@ helm/assets/cloudflare-api-key.txt
 helm/values.yaml
 
 k8s
-out
 helm/charts/*.tgz
-
-.vscode
 
 *.gen.go
 
-.vscode
-vendor
 testOutput.xml
+active_profiles
+out*
+
+.docker/data

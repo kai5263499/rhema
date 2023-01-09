@@ -1,74 +1,112 @@
 package rhema
 
 import (
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/proto"
 )
 
-var _ domain.Comms = (*MqttComms)(nil)
+var _ domain.Comms = (*comms)(nil)
 
-func NewMqttComms(clientID string, mqttBroker string) (*MqttComms, error) {
+func NewComms(cfg *domain.Config) (retComms domain.Comms, err error) {
 
-	opts := mqtt.NewClientOptions().AddBroker(mqttBroker).SetClientID(clientID)
-	mqttClient := mqtt.NewClient(opts)
-	if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		logrus.WithError(token.Error()).Fatal("mqtt new client")
-		return nil, token.Error()
+	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": cfg.KafkaBrokers,
+		"group.id":          cfg.KafkaGroupId,
+		"auto.offset.reset": "earliest",
+	})
+	if err != nil {
+		return
 	}
 
-	mc := &MqttComms{
-		mqttClient:  mqttClient,
-		requestChan: make(chan pb.Request, 100),
+	consumer.SubscribeTopics([]string{cfg.KafkaRequestTopic}, nil)
+
+	producer, err := kafka.NewProducer(&kafka.ConfigMap{
+		"bootstrap.servers": cfg.KafkaBrokers,
+	})
+	if err != nil {
+		return
 	}
 
-	if token := mc.mqttClient.Subscribe(domain.RequestsTopic, 0, mc.messageHandler); token.Wait() && token.Error() != nil {
-		logrus.WithError(token.Error()).Fatal("mqtt subscribe")
-		return nil, token.Error()
+	retComms = &comms{
+		cfg:           cfg,
+		kafkaConsumer: consumer,
+		kafkaProducer: producer,
+		requestChan:   make(chan pb.Request, 100),
 	}
 
-	return mc, nil
+	return
 }
 
-type MqttComms struct {
-	mqttClient  mqtt.Client
-	requestChan chan pb.Request
+type comms struct {
+	cfg           *domain.Config
+	requestChan   chan pb.Request
+	kafkaConsumer *kafka.Consumer
+	kafkaProducer *kafka.Producer
 }
 
-func (m *MqttComms) messageHandler(client mqtt.Client, msg mqtt.Message) {
-	logrus.Debugf("got message with %d bytes from %s", len(msg.Payload()), msg.Topic())
+func (m *comms) RequestChan() chan pb.Request {
+	return m.requestChan
+}
+
+func (m *comms) SendRequest(req *pb.Request) (err error) {
+	pubBytes, err := proto.Marshal(req)
+	if err != nil {
+		logrus.WithError(err).Errorf("unable to marshal proto %+#v", req)
+		return
+	}
+
+	if err = m.kafkaProducer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &m.cfg.KafkaRequestTopic, Partition: kafka.PartitionAny},
+		Value:          pubBytes,
+	}, nil); err != nil {
+		return
+	}
+
+	logrus.Debugf("published %d bytes to %s", len(pubBytes), m.cfg.KafkaRequestTopic)
+
+	return
+}
+
+func (m *comms) Close() (err error) {
+	m.kafkaProducer.Close()
+
+	if err = m.kafkaConsumer.Close(); err != nil {
+		return
+	}
+	return
+}
+
+func (m *comms) consumeFromKafka() {
+	for {
+		msg, err := m.kafkaConsumer.ReadMessage(-1)
+		if err == nil {
+			logrus.Debugf("Message received: %s\n", string(msg.Value))
+
+			if err := m.messageHandler(msg); err != nil {
+				logrus.WithError(err).Errorf("error handling message")
+				return
+			}
+		} else {
+			logrus.WithError(err).Errorf("error recieving message")
+			return
+		}
+	}
+}
+
+func (m *comms) messageHandler(msg *kafka.Message) (err error) {
+	logrus.Debugf("got message with %d bytes from %s", len(msg.Value), *msg.TopicPartition.Topic)
 
 	var req pb.Request
-	if err := proto.Unmarshal(msg.Payload(), &req); err != nil {
+
+	if err = proto.Unmarshal(msg.Value, &req); err != nil {
 		logrus.WithError(err).Errorf("unable to unmarshal request")
 		return
 	}
 
 	m.requestChan <- req
-}
 
-func (m *MqttComms) RequestChan() chan pb.Request {
-	return m.requestChan
-}
-
-func (m *MqttComms) SendRequest(req pb.Request) error {
-	pubBytes, err := proto.Marshal(&req)
-	if err != nil {
-		logrus.WithError(err).Errorf("unable to marshal proto %+#v", req)
-		return err
-	}
-
-	if token := m.mqttClient.Publish(domain.RequestsTopic, 0, false, pubBytes); token.Error() != nil {
-		logrus.WithError(token.Error()).Errorf("error sending request to marshal proto")
-		return token.Error()
-	}
-	logrus.Debugf("published %d bytes to %s", len(pubBytes), domain.RequestsTopic)
-
-	return nil
-}
-
-func (m *MqttComms) Close() {
-	m.mqttClient.Disconnect(100)
+	return
 }

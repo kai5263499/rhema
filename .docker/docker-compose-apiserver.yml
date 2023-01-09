@@ -1,0 +1,15 @@
+version: '3'
+services:
+  apiserver:
+    profiles:
+    - apiserver
+    environment:
+    - BOLTDB_PATH=${BOLTDB_PATH}
+    - CAYLEY_STORAGE_PATH=${CAYLEY_STORAGE_PATH}
+    restart: always
+    image: "kai5263499/rhema-apiserver"
+    ports:
+    - 8081:8080
+    build:
+      context: ..
+      dockerfile: cmd/apiserver/Dockerfile

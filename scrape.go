@@ -2,12 +2,10 @@ package rhema
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -25,22 +23,18 @@ import (
 var _ domain.Converter = (*Scrape)(nil)
 
 // NewScrape returns a new Scrape instance
-func NewScrape(minTextBlockSize uint32, localPath string, titleLengthLimit int) *Scrape {
+func NewScrape(cfg *domain.Config) *Scrape {
 	return &Scrape{
-		minTextBlockSize: minTextBlockSize,
-		localPath:        localPath,
-		titleLengthLimit: titleLengthLimit,
+		cfg: cfg,
 	}
 }
 
 // Scrape represents everything needed to scrape content from a URL
 type Scrape struct {
-	minTextBlockSize uint32
-	localPath        string
-	titleLengthLimit int
+	cfg *domain.Config
 }
 
-func (s *Scrape) extractText(ci pb.Request) (string, *bytes.Buffer, error) {
+func (s *Scrape) extractText(ci *pb.Request) (string, *bytes.Buffer, error) {
 	buffer := new(bytes.Buffer)
 
 	bow := surf.NewBrowser()
@@ -72,7 +66,7 @@ loopDomTest:
 			}
 			TxtContent := strings.TrimSpace(html.UnescapeString(string(domDocTest.Text())))
 
-			if uint32(len(TxtContent)) > s.minTextBlockSize {
+			if uint32(len(TxtContent)) > uint32(s.cfg.MinTextBlockSize) {
 				buffer.WriteString(TxtContent)
 			}
 		}
@@ -83,17 +77,17 @@ loopDomTest:
 
 // Convert takes a URL, reads the content, stores the relevant body of the website,
 // and returns a new TEXT
-func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
+func (s *Scrape) Convert(ci *pb.Request) error {
 	var err error
 
 	title, bodyBuf, err := s.extractText(ci)
 	if err != nil {
-		return ci, err
+		return err
 	}
 
-	if len(title) > 3 {
-		if s.titleLengthLimit > 0 && len(title) > s.titleLengthLimit {
-			ci.Title = stringsx.Clean(title[:s.titleLengthLimit])
+	if len(title) > 3 && len(ci.Title) < 1 {
+		if s.cfg.TitleLengthLimit > 0 && uint32(len(title)) > s.cfg.TitleLengthLimit {
+			ci.Title = stringsx.Clean(title[:s.cfg.TitleLengthLimit])
 		} else {
 			ci.Title = stringsx.Clean(title)
 		}
@@ -109,50 +103,22 @@ func (s *Scrape) Convert(ci pb.Request) (pb.Request, error) {
 
 	localFilename, err := GetFilePath(ci)
 	if err != nil {
-		return ci, err
+		return err
 	}
 
-	fullFilename := filepath.Join(s.localPath, localFilename)
+	fullFilename := filepath.Join(s.cfg.TmpPath, localFilename)
 	if err != nil {
-		return ci, err
+		return err
 	}
 	err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm)
 	if err != nil {
-		return ci, err
+		return err
 	}
 
 	err = ioutil.WriteFile(fullFilename, []byte(bodyBuf.String()), 0644)
 	if err != nil {
-		return ci, err
+		return err
 	}
 
-	return ci, nil
-}
-
-func (s *Scrape) SetConfig(key string, value string) bool {
-	switch key {
-	case "mintextblocksize":
-		v, err := strconv.Atoi(value)
-		if err != nil {
-			return false
-		}
-		s.minTextBlockSize = uint32(v)
-		return true
-	case "localpath":
-		s.localPath = value
-		return true
-	default:
-		return false
-	}
-}
-
-func (s *Scrape) GetConfig(key string) (bool, string) {
-	switch key {
-	case "mintextblocksize":
-		return true, fmt.Sprintf("%d", s.minTextBlockSize)
-	case "localpath":
-		return true, s.localPath
-	default:
-		return false, ""
-	}
+	return nil
 }

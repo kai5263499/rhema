@@ -2,12 +2,13 @@ package rhema
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gomodule/redigo/redis"
 	"github.com/icza/gox/stringsx"
 	"github.com/sirupsen/logrus"
 
@@ -21,28 +22,24 @@ var (
 	processingKeyTTL = 30 * time.Second
 )
 
-func NewRequestProcessor(localPath string, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, titleLengthLimit int, comms domain.Comms, redisConn redis.Conn) *RequestProcessor {
+func NewRequestProcessor(cfg *domain.Config, scrape domain.Converter, youtube domain.Converter, text2mp3 domain.Converter, speedupAudio domain.Converter, contentStorage domain.Storage) *RequestProcessor {
 	return &RequestProcessor{
-		youtube:          youtube,
-		scrape:           scrape,
-		text2mp3:         text2mp3,
-		speedupAudio:     speedupAudio,
-		localPath:        localPath,
-		titleLengthLimit: titleLengthLimit,
-		comms:            comms,
-		redisConn:        redisConn,
+		cfg:            cfg,
+		youtube:        youtube,
+		scrape:         scrape,
+		text2mp3:       text2mp3,
+		speedupAudio:   speedupAudio,
+		contentStorage: contentStorage,
 	}
 }
 
 type RequestProcessor struct {
-	youtube          domain.Converter
-	scrape           domain.Converter
-	text2mp3         domain.Converter
-	speedupAudio     domain.Converter
-	localPath        string
-	titleLengthLimit int
-	comms            domain.Comms
-	redisConn        redis.Conn
+	cfg            *domain.Config
+	youtube        domain.Converter
+	scrape         domain.Converter
+	text2mp3       domain.Converter
+	speedupAudio   domain.Converter
+	contentStorage domain.Storage
 }
 
 func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.ContentType {
@@ -66,13 +63,13 @@ func (rp *RequestProcessor) parseRequestTypeFromURI(requestUri string) pb.Conten
 	return pb.ContentType_TEXT
 }
 
-func (rp *RequestProcessor) downloadUri(ci pb.Request) error {
+func (rp *RequestProcessor) downloadUri(ci *pb.Request) error {
 	urlFilename, err := GetFilePath(ci)
 	if err != nil {
 		return err
 	}
 
-	urlFullFilename := filepath.Join(rp.localPath, urlFilename)
+	urlFullFilename := filepath.Join(rp.cfg.TmpPath, urlFilename)
 
 	if err := DownloadUriToFile(ci.Uri, urlFullFilename); err != nil {
 		return err
@@ -83,35 +80,7 @@ func (rp *RequestProcessor) downloadUri(ci pb.Request) error {
 	return nil
 }
 
-func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
-	var err error
-	var ci2 pb.Request
-	var ci3 pb.Request
-
-	reqKey := ci.RequestHash + ":processed"
-	alreadyProcessed, redisErr := redis.Bool(rp.redisConn.Do("EXISTS", reqKey))
-	if redisErr != nil {
-		logrus.WithError(redisErr).WithFields(logrus.Fields{
-			"reqKey": reqKey,
-		}).Error("error checking key in redis")
-		return ci, nil
-	}
-
-	if alreadyProcessed {
-		return ci, nil
-	}
-
-	defer func() {
-		if err := rp.redisConn.Send("SETEX", reqKey, processingKeyTTL.Seconds(), true); err != nil {
-			logrus.WithError(err).WithFields(logrus.Fields{
-				"reqKey": reqKey,
-			}).Error("error setting redis key")
-		}
-		if err := rp.redisConn.Flush(); err != nil {
-			logrus.WithError(err).Error("error flushing redis")
-		}
-	}()
-
+func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 	if ci.Type == pb.ContentType_URI {
 		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 
@@ -123,7 +92,9 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 				"uri": ci.Uri,
 			}).Warn("error parsing title from uri")
 		} else if len(parsedTitle) > 4 {
-			ci.Title = stringsx.Clean(parsedTitle)
+			if len(ci.Title) < 1 {
+				ci.Title = stringsx.Clean(parsedTitle)
+			}
 		} else {
 			logrus.WithFields(logrus.Fields{
 				"err":         err,
@@ -132,8 +103,8 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 			}).Warn("parsed title too short")
 		}
 
-		if len(ci.Title) > rp.titleLengthLimit {
-			ci.Title = stringsx.Clean(ci.Title[0:rp.titleLengthLimit])
+		if len(ci.Title) > int(rp.cfg.TitleLengthLimit) {
+			ci.Title = stringsx.Clean(ci.Title[0:rp.cfg.TitleLengthLimit])
 
 			logrus.WithFields(logrus.Fields{
 				"err":      err,
@@ -151,128 +122,110 @@ func (rp *RequestProcessor) Process(ci pb.Request) (pb.Request, error) {
 
 	switch ci.Type {
 	case pb.ContentType_YOUTUBE:
-		ci2, err = rp.youtube.Convert(ci)
+		logrus.Debugf("converting youtube")
+		err = rp.youtube.Convert(ci)
 		if err != nil {
 			logrus.WithError(err).Error("error with youtube")
-			return ci, err
+			return
 		}
 
-		ci3, err = rp.speedupAudio.Convert(ci2)
+		err = rp.speedupAudio.Convert(ci)
 		if err != nil {
 			logrus.WithError(err).Error("error with youtube audio")
-			return ci2, err
+			return
 		}
 
-		rp.comms.SendRequest(ci3)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
-		return ci3, nil
+		return
 	case pb.ContentType_TEXT:
 		if len(ci.Text) < 1 {
-			ci2, err = rp.scrape.Convert(ci)
-			if err != nil {
+			if err = rp.scrape.Convert(ci); err != nil {
 				logrus.WithError(err).Error("error with text")
-				return ci, err
+				return
 			}
-		} else {
-			ci2 = ci
 		}
 
-		ci3, err = rp.text2mp3.Convert(ci2)
+		if len(ci.Title) < 1 {
+			// Use the first 64 characters from the text as the title
+			ci.Title = ci.Text[:64]
+		}
+
+		if ci.Length < 1 {
+			ci.Length = uint64(len(ci.Text))
+		}
+
+		if ci.Size < 1 {
+			ci.Length = uint64(len(ci.Text))
+		}
+
+		var localFilename string
+		localFilename, err = GetFilePath(ci)
 		if err != nil {
+			return
+		}
+
+		fullFilename := filepath.Join(rp.cfg.TmpPath, localFilename)
+
+		err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm)
+		if err != nil {
+			return err
+		}
+
+		if err = ioutil.WriteFile(fullFilename, []byte(ci.Text), 0644); err != nil {
+			return err
+		}
+
+		if err = rp.text2mp3.Convert(ci); err != nil {
 			logrus.WithError(err).Error("error with text to audio conversion")
-			return ci2, err
+			return
 		}
 
-		rp.comms.SendRequest(ci3)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
-		return ci3, nil
+		return
 	case pb.ContentType_AUDIO:
-		err = rp.downloadUri(ci)
-		if err != nil {
+		if err = rp.downloadUri(ci); err != nil {
 			logrus.WithError(err).Error("error downloading audio uri")
-			return ci, err
+			return
 		}
 
-		ci2, err = rp.speedupAudio.Convert(ci)
-		if err != nil {
+		if err = rp.speedupAudio.Convert(ci); err != nil {
 			logrus.WithError(err).Error("error speeding up audio")
-			return ci, err
+			return
 		}
 
-		rp.comms.SendRequest(ci2)
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
+		}
 
-		return ci2, nil
+		return
 	case pb.ContentType_VIDEO:
-		err = rp.downloadUri(ci)
-		if err != nil {
+		if err = rp.downloadUri(ci); err != nil {
 			logrus.WithError(err).Error("error downloading video uri")
-			return ci, err
+			return
 		}
 
-		ci2, err = rp.speedupAudio.Convert(ci)
-		if err != nil {
+		if err = rp.speedupAudio.Convert(ci); err != nil {
 			logrus.WithError(err).Errorf("error speeding up video")
-			return ci, err
+			return
 		}
 
-		rp.comms.SendRequest(ci2)
-
-		return ci2, nil
-	default:
-		return ci, fmt.Errorf("unknown content type %s", ci.Type.String())
-	}
-}
-
-func (rp *RequestProcessor) SetConfig(key string, value string) bool {
-	ret1 := rp.youtube.SetConfig(key, value)
-	ret2 := rp.scrape.SetConfig(key, value)
-	ret3 := rp.text2mp3.SetConfig(key, value)
-	ret4 := rp.speedupAudio.SetConfig(key, value)
-
-	ret5 := false
-	switch key {
-	case "titlelengthlimit":
-		v, err := strconv.Atoi(value)
-		if err != nil {
-			return false
+		if err = rp.contentStorage.Store(ci); err != nil {
+			logrus.WithError(err).Error("error storing item")
+			return
 		}
-		rp.titleLengthLimit = v
-	case "localpath":
-		rp.localPath = value
-		ret5 = true
-	}
 
-	return ret1 || ret2 || ret3 || ret4 || ret5
-}
-
-func (rp *RequestProcessor) GetConfig(key string) (bool, string) {
-	var found bool
-	var val string
-
-	found, val = rp.youtube.GetConfig(key)
-	if found {
-		return found, val
-	}
-
-	found, val = rp.scrape.GetConfig(key)
-	if found {
-		return found, val
-	}
-
-	found, val = rp.text2mp3.GetConfig(key)
-	if found {
-		return found, val
-	}
-
-	found, val = rp.speedupAudio.GetConfig(key)
-	if found {
-		return found, val
-	}
-
-	switch key {
-	case "localpath":
-		return true, rp.localPath
+		return
 	default:
-		return false, ""
+		err = fmt.Errorf("unknown content type %s", ci.Type.String())
+		return
 	}
 }

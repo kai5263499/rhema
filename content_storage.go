@@ -1,67 +1,61 @@
 package rhema
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
-	"cloud.google.com/go/storage"
+	"github.com/boltdb/bolt"
+	"github.com/cayleygraph/cayley"
+	"github.com/cayleygraph/cayley/graph"
+	_ "github.com/cayleygraph/cayley/graph/kv/bolt"
+	"github.com/cayleygraph/quad"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
-	"github.com/kai5263499/rhema/interfaces"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2/google"
-
-	"github.com/gomodule/redigo/redis"
-	rg "github.com/redislabs/redisgraph-go"
+	"google.golang.org/protobuf/proto"
 )
+
+var _ domain.Storage = (*storage)(nil)
 
 // NewContentStorage returns an instance of ContentStorage
 func NewContentStorage(
-	tmpPath string,
-	bucket string,
-	gcpClient interfaces.GCPStorage,
-	copyToLocal bool,
-	localPath string,
-	chownTo int,
-	copyToCloud bool,
-	redisConn *redis.Conn,
-	redisGraphKey string,
-) (*ContentStorage, error) {
+	cfg *domain.Config,
+) (domain.Storage, error) {
 
-	redisGraph := rg.GraphNew(redisGraphKey, *redisConn)
+	err := graph.InitQuadStore("bolt", cfg.CayleyStoragePath, nil)
+	if err != nil {
+		if !strings.Contains(err.Error(), "exists") {
+			return nil, err
+		}
+	}
 
-	cs := &ContentStorage{
-		tmpPath:       tmpPath,
-		localPath:     localPath,
-		copyToLocal:   copyToLocal,
-		bucket:        bucket,
-		storageClient: gcpClient,
-		chownTo:       chownTo,
-		copyToCloud:   copyToCloud,
-		redisConn:     redisConn,
-		redisGraph:    &redisGraph,
-		redisGraphKey: redisGraphKey,
+	cayleyGraph, err := cayley.NewGraph("bolt", cfg.CayleyStoragePath, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	boltdb, err := bolt.Open(cfg.BoltDBPath, 0600, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	cs := &storage{
+		cfg:         cfg,
+		cayleyGraph: cayleyGraph,
+		boltdb:      boltdb,
 	}
 
 	return cs, nil
 }
 
 // ContentStorage persists content artifacts to S3
-type ContentStorage struct {
-	localPath     string
-	tmpPath       string
-	copyToLocal   bool
-	bucket        string
-	chownTo       int
-	copyToCloud   bool
-	storageClient interfaces.GCPStorage
-	redisConn     *redis.Conn
-	redisGraph    *rg.Graph
-	redisGraphKey string
+type storage struct {
+	cfg         *domain.Config
+	cayleyGraph *cayley.Handle
+	boltdb      *bolt.DB
 }
 
 func copyFileContents(src, dst string) error {
@@ -88,291 +82,153 @@ func copyFileContents(src, dst string) error {
 }
 
 // Store persists a content item in S3
-func (cs *ContentStorage) Store(ci pb.Request) (pb.Request, error) {
+func (cs *storage) Store(ci *pb.Request) (err error) {
 	itemPath, err := getPath(ci)
 	if err != nil {
 		logrus.WithError(err).Error("unable to get path")
-		return ci, err
+		return
 	}
 
 	ci.StoragePath = itemPath
 
 	logrus.Debugf("storing content item to %s", ci.StoragePath)
 
-	if cs.copyToLocal && ci.Type == pb.ContentType_AUDIO {
-		src := filepath.Join(cs.tmpPath, itemPath)
-		dst := filepath.Join(cs.localPath, filepath.Base(itemPath))
+	if ci.Type == pb.ContentType_AUDIO {
+		src := filepath.Join(cs.cfg.TmpPath, itemPath)
+		dst := filepath.Join(cs.cfg.LocalPath, filepath.Base(itemPath))
 
-		if err := os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
+		if err = os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
 			logrus.WithError(err).Errorf("unable to MkdirAll on %s", dst)
-			return ci, err
+			return
 		}
 
-		if err := copyFileContents(src, dst); err != nil {
+		if err = copyFileContents(src, dst); err != nil {
 			logrus.WithError(err).Errorf("unable to copy %s to %s", src, dst)
-			return ci, err
+			return
 		}
 
-		if err := os.Chown(dst, cs.chownTo, cs.chownTo); err != nil {
-			logrus.WithError(err).Errorf("unable to chown %s to %d", dst, cs.chownTo)
-			return ci, err
+		if err = os.Chown(dst, cs.cfg.ChownTo, cs.cfg.ChownTo); err != nil {
+			logrus.WithError(err).Errorf("unable to chown %s to %d", dst, cs.cfg.ChownTo)
+			return
 		}
 
 		logrus.Debugf("%s -> %s", src, dst)
 	}
 
-	// Only store audio content
-	if ci.Type == pb.ContentType_AUDIO {
-		if cs.copyToCloud {
-			logrus.Debugf("doCloudStore %s", itemPath)
-			if err := cs.doCloudStore(&ci, itemPath); err != nil {
-				logrus.WithError(err).Error("unable to doCloudStore")
-				return ci, err
-			}
-
-			if err := cs.presign(&ci); err != nil {
-				logrus.WithError(err).Error("unable to presign")
-				return ci, err
-			}
-		}
-
-		if err := cs.addGraphEntries(&ci); err != nil {
-			logrus.WithError(err).Error("unable to add graph entries")
-			return ci, err
-		}
+	err = InsertRequestIntoCayley(ci, cs.cayleyGraph)
+	if err != nil {
+		return
 	}
 
-	return ci, nil
+	err = InsertRequestIntoBolt(ci, cs.boltdb, cs.cfg.BoltDBBucket)
+	if err != nil {
+		return
+	}
+
+	logrus.Debugf("inserted requestHash=%s into both cayley and bolt", ci.RequestHash)
+
+	return
 }
 
-func (cs *ContentStorage) getContentNode(ci *pb.Request) *rg.Node {
-	contentNode := rg.Node{
-		Label: "content",
-		Properties: map[string]interface{}{
-			"created":     int(ci.Created),
-			"downloaduri": ci.DownloadURI,
-			"title":       ci.Title,
-			"type":        ci.Type.String(),
-			"size":        int(ci.Size),
-			"length":      int(ci.Length),
-			"uri":         ci.Uri,
-			"wpm":         int(ci.WordsPerMinute),
-			"espeakvoice": ci.ESpeakVoice,
-			"atempo":      ci.ATempo,
-			"text":        ci.Text,
-			"requesthash": ci.RequestHash,
-			"storagepath": ci.StoragePath,
-		},
-	}
-
-	query := fmt.Sprintf("MATCH (n:content {requesthash:'%s'}) RETURN count(n) as cnt", ci.RequestHash)
-	result, queryErr := cs.redisGraph.Query(query)
-	if queryErr != nil {
-		cs.redisGraph.AddNode(&contentNode)
-		return &contentNode
-	}
-
-	cnt := 0
-	for result.Next() {
-		r := result.Record()
-		cntI, found := r.Get("n.cnt")
-		if found {
-			cnt = cntI.(int)
-		}
-	}
-
-	if cnt == 0 {
-		cs.redisGraph.AddNode(&contentNode)
-	}
-
-	return &contentNode
-}
-
-func (cs *ContentStorage) getActorNode(ci *pb.Request) *rg.Node {
-	actorNode := rg.Node{
-		Label: "actor",
-		Properties: map[string]interface{}{
-			"submittedBy": ci.SubmittedBy,
-		},
-	}
-
-	query := fmt.Sprintf("MATCH (n:actor {submittedBy:'%s'}) RETURN count(n) as cnt", ci.SubmittedBy)
-	result, queryErr := cs.redisGraph.Query(query)
-	if queryErr != nil {
-		cs.redisGraph.AddNode(&actorNode)
-		return &actorNode
-	}
-
-	cnt := 0
-	for result.Next() {
-		r := result.Record()
-		cntI, found := r.Get("n.cnt")
-		if found {
-			cnt = cntI.(int)
-		}
-	}
-
-	if cnt == 0 {
-		cs.redisGraph.AddNode(&actorNode)
-	}
-
-	return &actorNode
-}
-
-func (cs *ContentStorage) getContentEdge(ci *pb.Request, actorNode *rg.Node, contentNode *rg.Node) *rg.Edge {
-	edge := rg.Edge{
-		Source:      actorNode,
-		Relation:    "submitted",
-		Destination: contentNode,
-		Properties: map[string]interface{}{
-			"submittedat":   int(ci.SubmittedAt),
-			"submittedwith": ci.SubmittedWith,
-			"created":       int(ci.Created),
-		},
-	}
-
-	query := fmt.Sprintf("MATCH (a:actor {submittedBy:'%s'})-[s:submitted]->(c:content {requesthash:'%s'}) RETURN count(s)", ci.SubmittedBy, ci.RequestHash)
-	result, queryErr := cs.redisGraph.Query(query)
-	if queryErr != nil {
-		cs.redisGraph.AddEdge(&edge)
-		return &edge
-	}
-
-	cnt := 0
-	for result.Next() {
-		r := result.Record()
-		cntI, found := r.Get("n.cnt")
-		if found {
-			cnt = cntI.(int)
-		}
-	}
-
-	if cnt == 0 {
-		cs.redisGraph.AddEdge(&edge)
-	}
-
-	return &edge
-}
-
-func (cs *ContentStorage) addGraphEntries(ci *pb.Request) error {
-
-	contentNode := cs.getContentNode(ci)
-	actorNode := cs.getActorNode(ci)
-	cs.getContentEdge(ci, actorNode, contentNode)
-
-	if _, err := cs.redisGraph.Commit(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (cs *ContentStorage) presign(ci *pb.Request) error {
-	itemPath, err := getPath(*ci)
+func InsertRequestIntoBolt(request *pb.Request, boltdb *bolt.DB, boltBucket string) error {
+	requestBytes, err := proto.Marshal(request)
 	if err != nil {
 		return err
 	}
 
-	jsonKey, err := ioutil.ReadFile(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
-	if err != nil {
-		return fmt.Errorf("cannot read the JSON key file, err: %v", err)
-	}
+	return boltdb.Update(func(tx *bolt.Tx) error {
+		b, err := tx.CreateBucketIfNotExists([]byte(boltBucket))
+		if err != nil {
+			return err
+		}
+		if b == nil {
+			return fmt.Errorf("Bucket not found")
+		}
 
-	conf, err := google.JWTConfigFromJSON(jsonKey)
-	if err != nil {
-		return fmt.Errorf("google.JWTConfigFromJSON: %v", err)
-	}
-
-	opts := &storage.SignedURLOptions{
-		Scheme:         storage.SigningSchemeV4,
-		Method:         "GET",
-		GoogleAccessID: conf.Email,
-		PrivateKey:     conf.PrivateKey,
-		Expires:        time.Now().Add(24 * time.Hour),
-	}
-
-	urlStr, err := storage.SignedURL(cs.bucket, itemPath, opts)
-	if err != nil {
-		return fmt.Errorf("Unable to generate a signed URL: %v", err)
-	}
-
-	if err != nil {
-		logrus.WithError(err).Errorf("unable to get object presigned uri")
-		return err
-	}
-
-	ci.DownloadURI = urlStr
-
-	logrus.Debugf("downloadURI=%s", ci.DownloadURI)
-
-	return nil
+		// Set the value at the given key
+		return b.Put([]byte(request.RequestHash), requestBytes)
+	})
 }
 
-func (cs *ContentStorage) doCloudStore(ci *pb.Request, path string) error {
-	fileName, err := GetFilePath(*ci)
+func InsertRequestIntoCayley(request *pb.Request, cayley *cayley.Handle) error {
+	return cayley.AddQuad(quad.Make(request.RequestHash, "submittedBy", request.SubmittedBy, nil))
+}
+
+func (cs *storage) Close() (err error) {
+	err = cs.boltdb.Close()
+	err = cs.cayleyGraph.Close()
+	return
+}
+
+func (cs *storage) Load(requestHash string) (req *pb.Request, err error) {
+	return ReadRequestFromBolt(requestHash, cs.boltdb, cs.cfg.BoltDBBucket)
+}
+
+func (cs *storage) ListAll() (requests []*pb.Request) {
+	var err error
+	requests = make([]*pb.Request, 0)
+
+	requestHashes, err := ReadAllRequestHashesFromCayley(cs.cayleyGraph)
 	if err != nil {
+		return
+	}
+
+	for _, requestHash := range requestHashes {
+		req, err := ReadRequestFromBolt(requestHash, cs.boltdb, cs.cfg.BoltDBBucket)
+		if err != nil {
+			return
+		}
+
+		requests = append(requests, req)
+	}
+
+	return
+}
+
+func ReadAllRequestHashesFromCayley(cayleyGraph *cayley.Handle) ([]string, error) {
+	// Create a slice to store the requestHashes
+	requestHashes := []string{}
+
+	// Use cayley.StartPath to query the graph for all nodes with the "Type" property
+	it := cayley.StartPath(cayleyGraph).Has("submittedBy").Iterate(nil)
+
+	// Iterate over the path and retrieve the requestHashes
+	err := it.EachValue(nil, func(value quad.Value) {
+		res := value.Native().(string)
+		requestHashes = append(requestHashes, res)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate over path: %v", err)
+	}
+
+	return requestHashes, nil
+}
+
+func ReadRequestFromBolt(requestHash string, boltDb *bolt.DB, boltDbBucket string) (request *pb.Request, err error) {
+	var requestBytes []byte
+
+	// Start a read-only transaction
+	err = boltDb.View(func(tx *bolt.Tx) error {
+		// Retrieve the bucket named "MyBucket"
+		b := tx.Bucket([]byte(boltDbBucket))
+		if b == nil {
+			return fmt.Errorf("Bucket not found")
+		}
+
+		// Retrieve the value at the given key
+		requestBytes = b.Get([]byte(requestHash))
+		if requestBytes == nil {
+			return fmt.Errorf("Key not found")
+		}
+
 		return nil
-	}
-
-	fullFileName := filepath.Join(cs.tmpPath, fileName)
-
-	// Open the file for use
-	f, err := os.Open(fullFileName)
+	})
 	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Get file size and read the file content into a buffer
-	fileInfo, _ := f.Stat()
-	var size int64 = fileInfo.Size()
-
-	logrus.Debugf("storing %d bytes from %s to %s/%s", size, fullFileName, cs.bucket, path)
-
-	ctx := context.Background()
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
-	defer cancel()
-
-	wc := cs.storageClient.Bucket(cs.bucket).Object(path).NewWriter(ctx)
-	if _, err = io.Copy(wc, f); err != nil {
-		logrus.WithError(err).Errorf("unable to copy file to bucket")
-		return err
+		return nil, err
 	}
 
-	if err := wc.Close(); err != nil {
-		logrus.WithError(err).Errorf("unable to close bucket writer")
-		return err
-	}
+	request = &pb.Request{}
+	err = proto.Unmarshal(requestBytes, request)
 
-	if err != nil {
-		logrus.WithError(err).Errorf("unable to put object into S3")
-		return err
-	}
-
-	return nil
-}
-
-func (cs *ContentStorage) SetConfig(key string, value string) bool {
-	switch key {
-	case "bucket":
-		cs.bucket = value
-		return true
-	case "localpath":
-		cs.localPath = value
-		return true
-	}
-
-	return false
-}
-
-func (cs *ContentStorage) GetConfig(key string) (bool, string) {
-	switch key {
-	case "bucket":
-		return true, cs.bucket
-	case "localpath":
-		return true, cs.localPath
-	default:
-		return false, ""
-	}
+	return
 }

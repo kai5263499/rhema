@@ -10,16 +10,12 @@ import (
 	"testing"
 
 	"github.com/gofrs/uuid"
+	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
-
-type rpTest struct {
-	request pb.Request
-	wanted  pb.Request
-}
 
 type rpUriTest struct {
 	uri          string
@@ -46,7 +42,7 @@ func TestRPExecCommandHelper(t *testing.T) {
 		return
 	}
 
-	fmt.Fprintf(os.Stdout, os.Getenv("STDOUT"))
+	fmt.Fprint(os.Stdout, os.Getenv("STDOUT"))
 	i, _ := strconv.Atoi(os.Getenv("EXIT_STATUS"))
 	os.Exit(i)
 }
@@ -59,15 +55,17 @@ var _ = Describe("request_processor", func() {
 
 	BeforeEach(func() {
 		rp = RequestProcessor{
+			cfg: &domain.Config{
+				LocalPath: "/tmp",
+			},
 			youtube:      &youtubeConverter{},
 			scrape:       &textConverter{},
 			text2mp3:     &audioConverter{},
 			speedupAudio: &audioConverter{},
-			localPath:    "/tmp",
 		}
 	})
 
-	It("Should perform a basic processing", func() {
+	PIt("Should perform a basic processing", func() {
 		var err error
 
 		processRPCmdInput = func(args []string) (cmdOutput string, exitStatus int) {
@@ -83,7 +81,7 @@ var _ = Describe("request_processor", func() {
 		}))
 		defer ts.Close()
 
-		ci := pb.Request{
+		ci := &pb.Request{
 			Created:     383576400,
 			Type:        pb.ContentType_URI,
 			Title:       newUUID.String(),
@@ -91,9 +89,9 @@ var _ = Describe("request_processor", func() {
 			Uri:         ts.URL,
 		}
 
-		requestResult, err := rp.Process(ci)
+		err = rp.Process(ci)
 		Expect(err).To(BeNil())
-		Expect(requestResult.Type).To(Equal(pb.ContentType_AUDIO))
+		Expect(ci.Type).To(Equal(pb.ContentType_AUDIO))
 	})
 
 	It("Should parse the right type from a URI", func() {

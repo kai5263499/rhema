@@ -30,6 +30,7 @@ message Request {
     string ATempo = 15;
     string SubmittedWith = 16;
     string StoragePath = 17;
+    repeated string Tags = 18;
 }
 
 enum ResponseCode {

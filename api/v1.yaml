@@ -5,8 +5,7 @@ info:
   description: Manage rhema assets
 servers:
   - url: //localhost:8080/v1
-  - url: //localhost:8080
-    description: local servers
+  - url: //host.docker.internal:8080/v1
 paths:
   /:
     get:
@@ -38,8 +37,8 @@ paths:
           $ref: "#/components/responses/Readiness"
   /request:
     post:
-      tags: [v1,origin]
-      operationId: Install
+      tags: [v1]
+      operationId: SubmitRequest
       parameters:
         - name: X-Forwarded-For
           in: header
@@ -51,45 +50,64 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RequestInput"
+              type: array
+              items:
+                $ref: "#/components/schemas/SubmitRequestInput"
       responses:
-        200:
-          $ref: "#/components/responses/RequestOutput"
-        404:
-          description: Org Not Found 
-        420:
-          description: Purchased endpoint exceeded
-        429:
-          description: Too many request per IP Address
-        500:
-          description: Request failed
-        503:
-          description: Circuit Breaker Tripped
-        504:
-          description: api-internal Timeout
-  /result:
-    post:
-      tags: [v1,origin]
-      operationId: SaveResult
+        202:
+          $ref: "#/components/responses/SubmitRequestOutput"
+          description: Accepted content request for processing
+  /status/{request_id}:
+    get:
+      tags: [v1]
+      operationId: RetrieveResultStatus
       parameters:
-        - name: X-SSL-CLIENT-S-DN
-          in: header
-          description: Required by PSBaseController
+        - name: request_id
+          in: path
           schema:
             type: string
-        - name: async
-          in: query
-          schema:
-            type: boolean
-        - name: diag
-          in: query
-          schema:
-            type: integer
+            description: uuidv4
+            pattern: ^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$
+            example: c73bcdcc-2669-4bf6-81d3-e4ae73fb11fd
       responses:
         200:
-          description: Save succeeded
+          $ref: "#/components/responses/SubmitRequestOutput"
+          description: Latest submited request output
+        404:
+          description: Request hash not found
+  /result/{type}/{request_id}:
+    get:
+      tags: [v1]
+      operationId: RetrieveResultContent
+      parameters:
+        - name: request_id
+          in: path
+          schema:
+            type: string
+            description: uuidv4
+            pattern: ^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$
+            example: c73bcdcc-2669-4bf6-81d3-e4ae73fb11fd
+        - name: type
+          in: path
+          schema:
+            type: string
+            description: content type
+            pattern: ^(URI|YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
+            example: AUDIO
+      responses:
+        200:
+          description: Binary result of processed request
+          $ref: "#/components/responses/Binary"
         500:
           description: Internal Error
+  /list-requests:
+    get:
+      tags: [v1]
+      operationId: ListAllRequests
+      responses:
+        200:
+          $ref: "#/components/responses/SubmitRequestOutput"
+          description: List of all submitted requests found in boltdb
 components:
   schemas:
     Status:
@@ -106,17 +124,28 @@ components:
           description: Status Message
     Liveness:
       required:
-      - status
+      - health
+      - real_ip
       properties:
-        status:
+        health:
+          type: string
+        real_ip:
           type: string
     Readiness:
+      required:
+      - health
+      - real_ip
+      properties:
+        health:
+          $ref: "#/components/schemas/Health"
+        real_ip:
+          type: string
+    Health:
       description: https://github.com/gritzkoo/golang-health-checker
       required:
-      - name
       - status
-      - version
       - date
+      - duration
       - integrations
       properties:
         name:
@@ -128,41 +157,39 @@ components:
         date:
           type: string
         duration:
-          type: number
-          format: float
+          x-go-type: float64
         integrations:
           type: array
           items:
-            type: object
-            required:
-            - name
-            - kind
-            - status
-            - response_time
-            - url
-            properties:
-              name:
-                type: string
-              kind:
-                type: string
-              status:
-                type: boolean
-              response_time:
-                type: number
-                format: float
-              url:
-                type: string
-                format: uri
-              errors:
-                type: string
-    RequestInput:
+            $ref: "#/components/schemas/HealthCheck"
+    HealthCheck:
       required:
-        - id
-        - results
+      - name
+      - kind
+      - status
+      - response_time
+      - url
+      properties:
+        name:
+          type: string
+        kind:
+          type: string
+        status:
+          type: boolean
+        response_time:
+          x-go-type: float64
+        url:
+          type: string
+          format: uri
+        errors:
+          x-go-type: error
+    SubmitRequestInput:
+      required:
+        - uri
       properties:
         type:
           type: string
-          pattern: ^(URI||YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
+          pattern: ^(URI|YOUTUBE|TEXT|AUDIO|VIDEO|PDF|YOUTUBE_LIST)$
         request_hash:
           type: string
         text:
@@ -200,29 +227,8 @@ components:
           type: string
         storage_path:
           type: string
-    RequestOutput:
-        required:
-          - id
-          - results
-        properties:
-          agent_uuid:
-            type: string
-          id:
-            type: integer
-            format: uint64
-          results:
-            type: array
-            items:
-              type: string
-          command_type_name:
-            type: string
   requestBodies:
   responses:
-    RequestOutput:
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/RequestOutput"      
     Liveness:
       content:
         application/json:
@@ -233,5 +239,16 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Readiness"
-
-    
+    SubmitRequestOutput:
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/SubmitRequestInput"
+    Binary:
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
