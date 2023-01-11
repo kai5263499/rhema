@@ -68,7 +68,7 @@ func ConvertProtoToInputParams(r *generated.Request) (o *v1.SubmitRequestInput) 
 	return
 }
 
-func ConvertProtoToOutputParams(r *generated.Request) (o *v1.SubmitRequestOutput) {
+func ConvertProtoToOutputParams(r *generated.Request) (o *v1.SubmitRequestInput) {
 
 	contentType := r.Type.String()
 	submittedAt := 0
@@ -76,21 +76,19 @@ func ConvertProtoToOutputParams(r *generated.Request) (o *v1.SubmitRequestOutput
 		submittedAt = int(r.SubmittedAt)
 	}
 
-	o = &v1.SubmitRequestOutput{
-		{
-			Uri:                 r.Uri,
-			RequestHash:         &r.RequestHash,
-			Title:               &r.Title,
-			Atempo:              &r.ATempo,
-			WordsPerMinute:      &r.WordsPerMinute,
-			Length:              &r.Length,
-			Size:                &r.Size,
-			Text:                &r.Text,
-			NumberOfConversions: &r.NumberOfConversions,
-			Type:                &contentType,
-			Created:             &r.Created,
-			SubmittedAt:         &submittedAt,
-		},
+	o = &v1.SubmitRequestInput{
+		Uri:                 r.Uri,
+		RequestHash:         &r.RequestHash,
+		Title:               &r.Title,
+		Atempo:              &r.ATempo,
+		WordsPerMinute:      &r.WordsPerMinute,
+		Length:              &r.Length,
+		Size:                &r.Size,
+		Text:                &r.Text,
+		NumberOfConversions: &r.NumberOfConversions,
+		Type:                &contentType,
+		Created:             &r.Created,
+		SubmittedAt:         &submittedAt,
 	}
 
 	return

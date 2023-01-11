@@ -136,12 +136,14 @@ func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) err
 		return newHTTPError(http.StatusBadRequest)
 	}
 
+	response := v1.SubmitRequestOutput{}
+
 	contentRequests := domain.ConvertParamsToProto(&requests)
 
-	responses := make([]*v1.SubmitRequestOutput, len(requests))
+	for _, contentRequest := range contentRequests {
+		r := domain.ConvertProtoToOutputParams(contentRequest)
 
-	for idx, contentRequest := range contentRequests {
-		responses[idx] = domain.ConvertProtoToOutputParams(contentRequest)
+		response = append(response, *r)
 
 		go func(cr *generated.Request) {
 			if err := a.requestProcessor.Process(cr); err != nil {
@@ -151,10 +153,9 @@ func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) err
 				}).Errorf("error processing request")
 			}
 		}(contentRequest)
-
 	}
 
-	return ctx.JSON(http.StatusAccepted, responses)
+	return ctx.JSON(http.StatusAccepted, response)
 }
 
 // (GET /result/{type}/{request_id})
@@ -188,13 +189,14 @@ func newHTTPError(code int, errs ...error) error {
 func (a *Api) ListAllRequests(ctx echo.Context) error {
 	requests := a.contentStorage.ListAll()
 
-	responses := make([]*v1.SubmitRequestOutput, len(requests))
+	response := v1.SubmitRequestOutput{}
 
-	for idx, request := range requests {
+	for _, request := range requests {
 		if request != nil {
-			responses[idx] = domain.ConvertProtoToOutputParams(request)
+			r := domain.ConvertProtoToOutputParams(request)
+			response = append(response, *r)
 		}
 	}
 
-	return ctx.JSON(http.StatusOK, responses)
+	return ctx.JSON(http.StatusOK, response)
 }
