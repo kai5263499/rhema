@@ -223,9 +223,8 @@ up:
 	COMPOSE_PROFILES="$$(cat active_profiles | tr '\n' ',' | sed 's/\(.*\),/\1/')" \
 	docker compose \
 	  -f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-contentbot.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-processor.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
 	  $$(echo "$(OPTIONS)") \
 	  up -d
@@ -237,9 +236,8 @@ down:
 	COMPOSE_PROFILES="$(ALL_PROFILES)" \
 	docker compose \
 	  -f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-contentbot.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-processor.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
 	  $$(echo "$(OPTIONS)") \
 	  down

@@ -1,0 +1,33 @@
+services:
+  statsd:
+    profiles:
+    - statsd
+    - monitoring
+    image: statsd/statsd
+    links:
+    - carbon:graphite
+    ports:
+    - 8125:8125/udp
+    - 8126:8126
+  graphite-web:
+    profiles:
+    - graphite-web
+    - monitoring
+    image: dockerana/graphite
+    links:
+    - carbon
+    ports:
+    - 18800:8000
+    volumes_from:
+    - carbon
+  carbon:
+    profiles:
+    - carbon
+    - monitoring
+    image: dockerana/carbon
+    ports:
+    - 2003:2003
+    - 2004:2004
+    - 7002:7002
+    volumes:
+    - /opt/graphite
