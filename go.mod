@@ -73,6 +73,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80 // indirect
 	github.com/lytics/multibayes v0.0.0-20161108162840-3457a5582021 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

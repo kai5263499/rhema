@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/gommon/log"
+	"github.com/ledongthuc/pdf"
+
 	"github.com/icza/gox/stringsx"
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
@@ -34,7 +37,65 @@ type Scrape struct {
 	cfg *domain.Config
 }
 
-func (s *Scrape) extractText(ci *pb.Request) (string, *bytes.Buffer, error) {
+// Convert takes a URL, reads the content, stores the relevant body of the website,
+// and returns a new TEXT
+func (s *Scrape) Convert(ci *pb.Request) error {
+	var err error
+	var title string
+	var bodyBuf *bytes.Buffer
+
+	switch ci.Type {
+	case pb.ContentType_URI:
+		title, bodyBuf, err = s.extractTextFromUri(ci)
+	case pb.ContentType_PDF:
+		title, bodyBuf, err = s.extractTextFromPdf(ci)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if len(title) > 3 && len(ci.Title) < 1 {
+		if len(ci.Title) < 1 && len(title) < 1 && bodyBuf.Len() > 0 {
+			ci.Title = stringsx.Clean(bodyBuf.String()[:s.cfg.TitleLengthLimit])
+		} else if s.cfg.TitleLengthLimit > 0 && uint32(len(title)) > s.cfg.TitleLengthLimit {
+			ci.Title = stringsx.Clean(title[:s.cfg.TitleLengthLimit])
+		} else {
+			ci.Title = stringsx.Clean(title)
+		}
+	}
+
+	ci.Type = pb.ContentType_TEXT
+
+	createdTime := time.Now()
+	ci.Created = uint64(createdTime.Unix())
+	ci.Text = bodyBuf.String()
+	ci.Size = uint64(bodyBuf.Len())
+	ci.Length = uint64(bodyBuf.Len())
+
+	localFilename, err := GetFilePath(ci)
+	if err != nil {
+		return err
+	}
+
+	fullFilename := filepath.Join(s.cfg.TmpPath, localFilename)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(fullFilename, []byte(bodyBuf.String()), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Scrape) extractTextFromUri(ci *pb.Request) (string, *bytes.Buffer, error) {
 	buffer := new(bytes.Buffer)
 
 	bow := surf.NewBrowser()
@@ -75,50 +136,38 @@ loopDomTest:
 	return bow.Title(), buffer, nil
 }
 
-// Convert takes a URL, reads the content, stores the relevant body of the website,
-// and returns a new TEXT
-func (s *Scrape) Convert(ci *pb.Request) error {
-	var err error
-
-	title, bodyBuf, err := s.extractText(ci)
+func (s *Scrape) extractTextFromPdf(ci *pb.Request) (string, *bytes.Buffer, error) {
+	filePath, err := GetFilePath(ci)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 
-	if len(title) > 3 && len(ci.Title) < 1 {
-		if s.cfg.TitleLengthLimit > 0 && uint32(len(title)) > s.cfg.TitleLengthLimit {
-			ci.Title = stringsx.Clean(title[:s.cfg.TitleLengthLimit])
-		} else {
-			ci.Title = stringsx.Clean(title)
+	pdfFilePath := filepath.Join(s.cfg.TmpPath, filePath)
+
+	_, r, err := pdf.Open(pdfFilePath)
+	if err != nil {
+		return "", nil, err
+	}
+	totalPage := r.NumPage()
+
+	var textBuilder bytes.Buffer
+	for pageIndex := 1; pageIndex <= totalPage; pageIndex++ {
+		p := r.Page(pageIndex)
+		if p.V.IsNull() {
+			log.Warnf("error loading pdf page %d from doc %s, skipping page", pageIndex, pdfFilePath)
+			continue
+		}
+		s, err := p.GetPlainText(nil)
+		if err != nil {
+			log.Warnf("error reading pdf page %d from doc %s, skipping page", pageIndex, pdfFilePath)
+			continue
+		}
+
+		_, err = textBuilder.WriteString(s)
+		if err != nil {
+			log.Warnf("error writing string contents from pdf page %d from doc %s into document buffer, skipping page", pageIndex, pdfFilePath)
+			continue
 		}
 	}
-
-	ci.Type = pb.ContentType_TEXT
-
-	createdTime := time.Now()
-	ci.Created = uint64(createdTime.Unix())
-	ci.Text = bodyBuf.String()
-	ci.Size = uint64(bodyBuf.Len())
-	ci.Length = uint64(bodyBuf.Len())
-
-	localFilename, err := GetFilePath(ci)
-	if err != nil {
-		return err
-	}
-
-	fullFilename := filepath.Join(s.cfg.TmpPath, localFilename)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(path.Dir(fullFilename), os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(fullFilename, []byte(bodyBuf.String()), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return "", &textBuilder, nil
 }

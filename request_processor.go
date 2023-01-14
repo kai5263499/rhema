@@ -85,7 +85,6 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 		ci.Type = rp.parseRequestTypeFromURI(ci.Uri)
 
 		parsedTitle, err := parseTitleFromUri(ci.Uri)
-
 		if err != nil {
 			logrus.WithFields(logrus.Fields{
 				"err": err,
@@ -141,7 +140,15 @@ func (rp *RequestProcessor) Process(ci *pb.Request) (err error) {
 		}
 
 		return
-	case pb.ContentType_TEXT:
+	case pb.ContentType_PDF, pb.ContentType_TEXT:
+
+		if ci.Type == pb.ContentType_PDF {
+			if err = rp.downloadUri(ci); err != nil {
+				logrus.WithError(err).Error("error downloading pdf uri")
+				return
+			}
+		}
+
 		if len(ci.Text) < 1 {
 			if err = rp.scrape.Convert(ci); err != nil {
 				logrus.WithError(err).Error("error with text")
