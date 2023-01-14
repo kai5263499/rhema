@@ -23,4 +23,6 @@ type Config struct {
 	Channels            []string `env:"CHANNELS" envDefault:"content"`
 	CayleyStoragePath   string   `env:"CAYLEY_STORAGE_PATH"`
 	RequestProcessorUri string   `env:"REQUEST_PROCESSOR_URI" envDefault:"http://localhost:8080"`
+	DDAgentHost         string   `env:"DD_AGENT_HOST" envDefault:"localhost"`
+	DDAgentPort         int      `env:"DD_AGENT_PORT" envDefault:"8125"`
 }

@@ -18,6 +18,10 @@ import (
 	"github.com/swaggo/swag"
 )
 
+const (
+	STATSD_REQUEST_ACCEPTED = "rhema.request.accepted"
+)
+
 var _ v1.ServerInterface = (*Api)(nil)
 
 func NewApi(
@@ -27,6 +31,17 @@ func NewApi(
 	requestProcessor domain.Processor,
 	contentStorage domain.Storage,
 ) (*Api, error) {
+
+	var statsdClient statsd.ClientInterface
+	if len(cfg.DDAgentHost) > 0 {
+		statsdAddress := fmt.Sprintf("%s:%d", cfg.DDAgentHost, cfg.DDAgentPort)
+		statsdClient, err = statsd.New(statsdAddress)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		statsdClient = &statsd.NoOpClient{}
+	}
 
 	e := echo.New()
 	e.Debug = true
@@ -39,6 +54,7 @@ func NewApi(
 		requestProcessor:   requestProcessor,
 		contentStorage:     contentStorage,
 		echo:               e,
+		statsdClient:       statsdClient,
 	}
 
 	all := v1.ServerInterfaceWrapper{
@@ -94,6 +110,7 @@ type Api struct {
 	contentStorage     domain.Storage
 	health             healthcheck.ApplicationConfig
 	echo               *echo.Echo
+	statsdClient       statsd.ClientInterface
 }
 
 func (a *Api) Start() {
@@ -155,6 +172,7 @@ func (a *Api) SubmitRequest(ctx echo.Context, params v1.SubmitRequestParams) err
 		}(contentRequest)
 	}
 
+	_ = a.statsdClient.Count(STATSD_REQUEST_ACCEPTED, 1, []string{}, 1)
 	return ctx.JSON(http.StatusAccepted, response)
 }
 

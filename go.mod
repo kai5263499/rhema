@@ -36,7 +36,9 @@ require (
 require (
 	cloud.google.com/go v0.57.0 // indirect
 	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/Microsoft/go-winio v0.4.12 // indirect
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/andybalholm/cascadia v1.0.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
