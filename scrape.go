@@ -11,6 +11,7 @@ import (
 
 	"github.com/labstack/gommon/log"
 	"github.com/ledongthuc/pdf"
+	"github.com/sirupsen/logrus"
 
 	"github.com/icza/gox/stringsx"
 	"github.com/kai5263499/rhema/domain"
@@ -45,7 +46,7 @@ func (s *Scrape) Convert(ci *pb.Request) error {
 	var bodyBuf *bytes.Buffer
 
 	switch ci.Type {
-	case pb.ContentType_URI:
+	case pb.ContentType_TEXT:
 		title, bodyBuf, err = s.extractTextFromUri(ci)
 	case pb.ContentType_PDF:
 		title, bodyBuf, err = s.extractTextFromPdf(ci)
@@ -106,11 +107,14 @@ func (s *Scrape) extractTextFromUri(ci *pb.Request) (string, *bytes.Buffer, erro
 	bow.SetCookieJar(jar.NewMemoryCookies())
 	err := bow.Open(ci.Uri)
 	if err != nil {
+		logrus.WithError(err).Errorf("error opening uri=%s", ci.Uri)
 		return "", nil, err
 	}
 
 	domDocTest := html.NewTokenizer(strings.NewReader(bow.Body()))
 	previousStartTokenTest := domDocTest.Token()
+
+	logrus.Debugf("opened uri=%s processing elements", ci.Uri)
 
 loopDomTest:
 	for {
