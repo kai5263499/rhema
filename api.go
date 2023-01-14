@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/DataDog/datadog-go/statsd"
 	"github.com/felixge/fgprof"
 	"github.com/gritzkoo/golang-health-checker/pkg/healthcheck"
 	"github.com/kai5263499/rhema/domain"
@@ -31,8 +32,9 @@ func NewApi(
 	requestProcessor domain.Processor,
 	contentStorage domain.Storage,
 ) (*Api, error) {
-
+	var err error
 	var statsdClient statsd.ClientInterface
+
 	if len(cfg.DDAgentHost) > 0 {
 		statsdAddress := fmt.Sprintf("%s:%d", cfg.DDAgentHost, cfg.DDAgentPort)
 		statsdClient, err = statsd.New(statsdAddress)
