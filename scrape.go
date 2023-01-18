@@ -70,9 +70,11 @@ func (s *Scrape) Convert(ci *pb.Request) error {
 
 	createdTime := time.Now()
 	ci.Created = uint64(createdTime.Unix())
-	ci.Text = bodyBuf.String()
-	ci.Size = uint64(bodyBuf.Len())
-	ci.Length = uint64(bodyBuf.Len())
+	if bodyBuf != nil && bodyBuf.Len() > 0 {
+		ci.Text = bodyBuf.String()
+		ci.Size = uint64(bodyBuf.Len())
+		ci.Length = uint64(bodyBuf.Len())
+	}
 
 	localFilename, err := GetFilePath(ci)
 	if err != nil {
