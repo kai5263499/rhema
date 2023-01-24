@@ -25,4 +25,5 @@ type Config struct {
 	RequestProcessorUri string   `env:"REQUEST_PROCESSOR_URI" envDefault:"http://localhost:8080"`
 	DDAgentHost         string   `env:"DD_AGENT_HOST" envDefault:"localhost"`
 	DDAgentPort         int      `env:"DD_AGENT_PORT" envDefault:"8125"`
+	DiscordBotToken     string   `env:"DISCORD_BOT_TOKEN"`
 }
