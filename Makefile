@@ -71,26 +71,6 @@ ${TOOLS}:
 # Options to pass to docker compose. Like an .env var file to use
 DOCKER_COMPOSE_OPTIONS:=""
 
-# startup
-container/environment/up:
-	@cd $(ROOT_DIR) && \
-	COMPOSE_PROFILES="$$(cat active_profiles | tr '\n' ',' | sed 's/\(.*\),/\1/')" \
-	@$(DOCKER_PATH) compose \
-	  -f $(ROOT_DIR)/docker-compose-redis.yml \
-	  -f $(ROOT_DIR)/docker-compose-kafka.yml \
-	  $$(echo "$(DOCKER_COMPOSE_OPTIONS)") \
-	  up
-
-# shutdown
-container/environment/down:
-	@cd $(ROOT_DIR) && \
-	COMPOSE_PROFILES="$(ALL_PROFILES)" \
-	@$(DOCKER_PATH) compose \
-	  -f $(ROOT_DIR)/docker-compose-redis.yml \
-	  -f $(ROOT_DIR)/docker-compose-kafka.yml \
-	  $$(echo "$(DOCKER_COMPOSE_OPTIONS)") \
-	  down
-
 # shutdown & cleanup
 container/environment/clean: down
 	@rm -f $(ROOT_DIR)/active_profiles
@@ -226,6 +206,7 @@ up:
 	  -f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-traefik.yml \
 	  $$(echo "$(OPTIONS)") \
 	  up -d
 
@@ -239,6 +220,7 @@ down:
 	  -f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
 	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
+	  -f $(ROOT_DIR)/.docker/docker-compose-traefik.yml \
 	  $$(echo "$(OPTIONS)") \
 	  down
 
@@ -261,3 +243,9 @@ add-%:
 
 add/%:
 	@echo "$(subst add/,,$(@F))" >> $(ROOT_DIR)/active_profiles
+
+certs/setup:
+	wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+	sudo mv mkcert-v1.4.3-linux-amd64 /usr/local/bin/mkcert && chmod +x /usr/local/bin/mkcert
+	mkcert -install
+	mkcert -cert-file certs/local-cert.pem -key-file certs/local-key.pem "docker.localhost" "*.docker.localhost" "domain.local" "*.domain.loc

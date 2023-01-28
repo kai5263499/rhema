@@ -22,7 +22,7 @@ type Config struct {
 	SlackToken          string   `env:"SLACK_TOKEN"`
 	Channels            []string `env:"CHANNELS" envDefault:"content"`
 	CayleyStoragePath   string   `env:"CAYLEY_STORAGE_PATH"`
-	RequestProcessorUri string   `env:"REQUEST_PROCESSOR_URI" envDefault:"http://localhost:8080"`
+	RequestProcessorUri string   `env:"REQUEST_PROCESSOR_URI" envDefault:"http://localhost:8080/v1"`
 	DDAgentHost         string   `env:"DD_AGENT_HOST" envDefault:"localhost"`
 	DDAgentPort         int      `env:"DD_AGENT_PORT" envDefault:"8125"`
 	DiscordBotToken     string   `env:"DISCORD_BOT_TOKEN"`

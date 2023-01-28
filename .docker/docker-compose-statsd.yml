@@ -20,6 +20,13 @@ services:
     - 18800:8000
     volumes_from:
     - carbon
+    labels:
+    - "traefik.enable=true"
+    - "traefik.docker.network=proxy"
+    - "traefik.http.routers.monitoring.tls=true"
+    - "traefik.http.routers.monitoring.rule=Host(`monitoring.docker.localhost`)"
+    networks:
+    - proxy
   carbon:
     profiles:
     - carbon
