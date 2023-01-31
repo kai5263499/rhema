@@ -196,17 +196,21 @@ OPTIONS?=""
 
 which = $(shell which $1 2> /dev/null || echo $1)
 
+define COMPOSE_DEFS
+-f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
+-f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
+-f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
+-f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
+-f $(ROOT_DIR)/.docker/docker-compose-traefik.yml
+endef
+
 # startup
 .PHONY: up
 up:
 	@cd $(ROOT_DIR) && \
 	COMPOSE_PROFILES="$$(cat active_profiles | tr '\n' ',' | sed 's/\(.*\),/\1/')" \
 	docker compose \
-	  -f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-traefik.yml \
+	  $(COMPOSE_DEFS) \
 	  $$(echo "$(OPTIONS)") \
 	  up -d
 
@@ -216,11 +220,7 @@ down:
 	@cd $(ROOT_DIR) && \
 	COMPOSE_PROFILES="$(ALL_PROFILES)" \
 	docker compose \
-	  -f $(ROOT_DIR)/.docker/docker-compose-redis.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-statsd.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-kafka.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-apiserver.yml \
-	  -f $(ROOT_DIR)/.docker/docker-compose-traefik.yml \
+	  $(COMPOSE_DEFS) \
 	  $$(echo "$(OPTIONS)") \
 	  down
 
@@ -246,6 +246,6 @@ add/%:
 
 certs/setup:
 	wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
-	sudo mv mkcert-v1.4.3-linux-amd64 /usr/local/bin/mkcert && chmod +x /usr/local/bin/mkcert
+	sudo mv mkcert-v1.4.4-linux-amd64 /usr/local/bin/mkcert && chmod +x /usr/local/bin/mkcert
 	mkcert -install
-	mkcert -cert-file certs/local-cert.pem -key-file certs/local-key.pem "docker.localhost" "*.docker.localhost" "domain.local" "*.domain.loc
+	mkcert -cert-file certs/local-cert.pem -key-file certs/local-key.pem "docker.localhost" "*.docker.localhost" "domain.local" "*.domain.local"
