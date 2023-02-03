@@ -4,6 +4,7 @@ services:
     - statsd
     - monitoring
     image: statsd/statsd
+    container_name: statsd
     links:
     - carbon:graphite
     ports:
@@ -14,6 +15,7 @@ services:
     - graphite-web
     - monitoring
     image: dockerana/graphite
+    container_name: graphite-web
     links:
     - carbon
     ports:
@@ -28,6 +30,7 @@ services:
     networks:
     - proxy
   carbon:
+    container_name: carbon
     profiles:
     - carbon
     - monitoring

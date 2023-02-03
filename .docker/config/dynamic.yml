@@ -22,4 +22,7 @@ tls:
 
 metrics:
   statsD:
+    prefix: traefik
+    addEntryPointsLabels: true
+    addRoutersLabels: true
     address: localhost:8125
