@@ -25,8 +25,10 @@ func NewContentStorage(
 	cfg *domain.Config,
 ) (domain.Storage, error) {
 
-	err := graph.InitQuadStore("bolt", cfg.CayleyStoragePath, nil)
-	if err != nil {
+	logrus.Debugf("initquadstore on %s", cfg.CayleyStoragePath)
+
+	if err := graph.InitQuadStore("bolt", cfg.CayleyStoragePath, nil); err != nil {
+		logrus.WithError(err).Error("error init quad store")
 		if !strings.Contains(err.Error(), "exists") {
 			return nil, err
 		}
@@ -97,6 +99,7 @@ func (cs *storage) Store(ci *pb.Request) (err error) {
 		src := filepath.Join(cs.cfg.TmpPath, itemPath)
 		dst := filepath.Join(cs.cfg.LocalPath, filepath.Base(itemPath))
 
+		logrus.Debugf("mkdirall on %s", dst)
 		if err = os.MkdirAll(filepath.Dir(dst), os.ModePerm); err != nil {
 			logrus.WithError(err).Errorf("unable to MkdirAll on %s", dst)
 			return

@@ -40,6 +40,8 @@ func main() {
 		logrus.WithError(err).Fatal("new storage client")
 	}
 
+	logrus.Debug("content storage created")
+
 	requestProcessor := NewRequestProcessor(cfg,
 		scrape,
 		youtube,

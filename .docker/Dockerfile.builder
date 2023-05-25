@@ -21,10 +21,10 @@ RUN echo "Install apt packages" && \
 RUN echo "Symlinking python to python3" && \
 	ln -s $(which python3) /usr/bin/python
 
-RUN	echo "Install youtube-dl" && \
-	curl -sL https://yt-dl.org/downloads/latest/youtube-dl -o /usr/local/bin/youtube-dl && \
-	chmod +x /usr/local/bin/youtube-dl && \
-	/usr/local/bin/youtube-dl -U
+RUN	echo "Install yt-dlp" && \
+	curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+	chmod +x /usr/local/bin/yt-dlp && \
+	/usr/local/bin/yt-dlp -U
 
 RUN echo "Install golang" && \
 	curl -sLO https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \

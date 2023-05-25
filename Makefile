@@ -44,7 +44,7 @@ image/all: image/builder
 
 ${IMAGE_MODULES}:
 	@$(DOCKER_PATH) rmi -f ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT}
-	@$(DOCKER_PATH) build -t ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} -f Dockerfile.cmd --build-arg service_name=$(subst image/,,$@) .
+	@$(DOCKER_PATH) build -t ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} -f .docker/Dockerfile.cmd --build-arg service_name=$(subst image/,,$@) .
 	@$(DOCKER_PATH) tag ${DOCKER_REPO}/$(subst image/,,$@):${GIT_COMMIT} ${DOCKER_REPO}/$(subst image/,,$@):${GIT_BRANCH}
 	@$(DOCKER_PATH) rmi $$(docker images -f "dangling=true" -q) || true
 
@@ -96,19 +96,10 @@ protos:
 container/interactive:
 	@$(DOCKER_PATH) run -it --rm \
 	-e BUCKET="${BUCKET}" \
-	-e MQTT_BROKER="${MQTT_BROKER}" \
-	-e SLACK_TOKEN="${SLACK_TOKEN}" \
 	-e LOG_LEVEL="${LOG_LEVEL}" \
 	-e CHANNELS="${CHANNELS}" \
-	-e GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp/service-account-file.json" \
 	-v ${DEV_PATH}:/go/src/github.com/kai5263499 \
 	-v ${LOCAL_PATH}:/data \
-	-v ${GOOGLE_APPLICATION_CREDENTIALS}:/tmp/gcp/service-account-file.json \
-	-e GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp/service-account-file.json \
-	-e AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID} \
-	-e AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET} \
-	-e AUTH0_DOMAIN=${AUTH0_DOMAIN} \
-	-e AUTH0_CALLBACK_URL=${AUTH0_CALLBACK_URL} \
 	--tmpfs /tmp:exec \
 	-p 8090:8080 \
 	-w /go/src/github.com/kai5263499/rhema/cmd/apiserver \
