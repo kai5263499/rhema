@@ -75,16 +75,6 @@ DOCKER_COMPOSE_OPTIONS:=""
 container/environment/clean: down
 	@rm -f $(ROOT_DIR)/active_profiles
 
-# add kafka to environment
-.PHONY: add-redis
-add-redis:
-	@echo "redis" >> $(ROOT_DIR)/active_profiles
-
-# add kafka to environment
-.PHONY: add-kafka
-add-kafka:
-	@echo "kafka" >> $(ROOT_DIR)/active_profiles
-
 # Generate go stubs from proto definitions. This should be run inside of an interactive container
 PROTOC_PATH := $(call which,protoc)
 $(PROTOC_PATH):
@@ -178,8 +168,6 @@ clean: down
 	@rm -rf out
 	@find . -name "*.gen.go" -exec rm -rf {} \;
 	@rm -f $(ROOT_DIR)/active_profiles
-
-ALL_PROFILES:=psdb,redis,kafka,kafka-ui,ax-kafka-tools,jwt-generator,rbac-authz-postgres,rbac-authz-jwt-local,rbac-authz-jwt-dev,rabbitmq
 
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
