@@ -62,21 +62,3 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-
-  ax-kafka-tools:
-    profiles:
-      - ax-kafka-tools
-    image: automox.jfrog.io/v3itops-docker/ax-kafka-tools:latest
-    container_name: ax-kafka-tools-1
-    ports:
-      - "${PROTOBUF_PORT:-8888}:8888"
-    environment:
-      - KAFKA_SERVER=kafka-1:29092
-      - KAFKA_SUBSCRIBED_TOPICS=${PROTOBUF_KAFKA_TOPIC:-ax.all_proto.local,ax.accounts.events.pb.local}
-      - KAFKA_PUBLISH_TOPIC=${PROTOBUF_KAFKA_PUBLISH_TOPIC:-ax.all_proto.local}
-      - KAFKA_GROUP=${PROTOBUF_KAFKA_GROUP:-axKafkaToolsGroup}
-      - KAFKA_KEY=${PROTOBUF_KAFKA_KEY:-axKafkaToolsKey}
-      - KAFKA_DEBUG_TOPIC=${PROTOBUF_KAFKA_DEBUG_TOPIC:-axKafkaToolsTopic}
-    depends_on:
-      kafka:
-        condition: service_healthy
