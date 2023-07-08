@@ -1,7 +1,5 @@
 FROM ubuntu:22.04
 
-LABEL MAINTAINER="Wes Widner <kai5263499@gmail.com>"
-
 ARG GO_VERSION=1.19.2
 ARG PROTOC_VERSION=21.0
 
@@ -10,9 +8,9 @@ ENV GOPATH=/go
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=$GOPATH/bin:/usr/local/go/bin:$PATH
 
-COPY . /go/src/github.com/kai5263499/rhema
+WORKDIR /
 
-WORKDIR /go/src/github.com/kai5263499/rhema
+COPY . /go/src/github.com/kai5263499/rhema
 
 RUN echo "Install apt packages" && \
 	apt-get update && \
@@ -29,17 +27,31 @@ RUN	echo "Install yt-dlp" && \
 RUN echo "Install golang" && \
 	curl -sLO https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
 	tar -xf go${GO_VERSION}.linux-amd64.tar.gz && \
-	mv go /usr/local && \
 	rm -rf go${GO_VERSION}.linux-amd64.tar.gz
 
-RUN echo "Cache golang modules" && \
-	go mod download && \
-	go mod vendor
+RUN cd /go/src/github.com/kai5263499/rhema && \
+	mkdir -p out && \
+	go build -o out/rhema cmd/rhema/main.go && \
+    # ldd out/apiserver | tr -s '[:blank:]' '\n' | grep '^/' | \
+    # xargs -I % sh -c 'mkdir -p $(dirname out/deps%); cp % out/deps%;' && \
+	mv ./out/deps /deps && \
+	mv ./out/rhema /rhema && \
+	cd / && \
+	rm -rf /go
 
-RUN	echo "Install protoc" && \
-	go get -u github.com/golang/protobuf/protoc-gen-go && \
-	curl -sLO https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
-    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d protoc3 && \
-    mv protoc3/bin/* /usr/local/bin/ && \
-    mv protoc3/include/* /usr/local/include/ && \
-    rm -rf protoc3 protoc-${PROTOC_VERSION}-linux-x86_64.zip
+ENV LOG_LEVEL="debug"
+ENV PORT="8080"
+ENV LOCAL_PATH="/data"
+ENV TMP_PATH="/tmp"
+ENV CHOWN_TO="1000"
+ENV MIN_TEXT_BLOCK_SIZE="100"
+ENV WORDS_PER_MINUTE="350"
+ENV ESPEAK_VOICE="f5"
+ENV ATEMPO="2.0"
+ENV TITLE_LENGTH_LIMIT="40"
+
+EXPOSE 8080
+
+VOLUME [ "/tmp", "/data" ]
+
+ENTRYPOINT [ "/rhema" ]
