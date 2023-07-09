@@ -32,8 +32,8 @@ RUN echo "Install golang" && \
 RUN cd /go/src/github.com/kai5263499/rhema && \
 	mkdir -p out && \
 	go build -o out/rhema cmd/rhema/main.go && \
-    # ldd out/apiserver | tr -s '[:blank:]' '\n' | grep '^/' | \
-    # xargs -I % sh -c 'mkdir -p $(dirname out/deps%); cp % out/deps%;' && \
+    ldd out/apiserver | tr -s '[:blank:]' '\n' | grep '^/' | \
+    xargs -I % sh -c 'mkdir -p $(dirname out/deps%); cp % out/deps%;' && \
 	mv ./out/deps /deps && \
 	mv ./out/rhema /rhema && \
 	cd / && \
