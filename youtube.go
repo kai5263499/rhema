@@ -61,7 +61,7 @@ func (yt *YouTube) Convert(ci *pb.Request) error {
 
 	logrus.Debugf("before execCommand with mp3FullFilename=%s uri=%s", mp3FullFilename, ci.Uri)
 
-	youtubeCmd := yt.execCommand("youtube-dl",
+	youtubeCmd := yt.execCommand("yt-dlp",
 		"--extract-audio",
 		"--add-metadata",
 		"--audio-format", "mp3",

@@ -12,18 +12,8 @@ type Config struct {
 	LogLevel            string   `env:"LOG_LEVEL" envDefault:"debug"`
 	LocalPath           string   `env:"LOCAL_PATH" envDefault:"./.docker/data"`
 	TmpPath             string   `env:"TMP_PATH" envDefault:"/tmp"`
-	RedisHost           string   `env:"REDIS_HOST" envDefault:"localhost"`
-	RedisPort           string   `env:"REDIS_PORT" envDefault:"6379"`
-	KafkaBrokers        string   `env:"KAFKA_BROKERS" envDefault:"localhost:9092"`
-	KafkaRequestTopic   string   `env:"KAFKA_REQUESTS_TOPIC" envDefault:"rhema.requests"`
-	KafkaGroupId        string   `env:"KAFKA_GROUP_ID" envDefault:"rhema-processor"`
-	BoltDBPath          string   `env:"BOLTDB_PATH"`
-	BoltDBBucket        string   `env:"BOLTDB_BUCKET" envDefault:"content"`
-	SlackToken          string   `env:"SLACK_TOKEN"`
 	Channels            []string `env:"CHANNELS" envDefault:"content"`
-	CayleyStoragePath   string   `env:"CAYLEY_STORAGE_PATH"`
 	RequestProcessorUri string   `env:"REQUEST_PROCESSOR_URI" envDefault:"http://localhost:8080/v1"`
 	DDAgentHost         string   `env:"DD_AGENT_HOST" envDefault:"localhost"`
 	DDAgentPort         int      `env:"DD_AGENT_PORT" envDefault:"8125"`
-	DiscordBotToken     string   `env:"DISCORD_BOT_TOKEN"`
 }
