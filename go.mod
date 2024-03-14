@@ -23,8 +23,8 @@ require (
 	github.com/sirupsen/logrus v1.8.1
 	github.com/swaggo/echo-swagger v1.3.5
 	github.com/swaggo/swag v1.8.9
-	golang.org/x/net v0.10.0
-	google.golang.org/protobuf v1.33.0
+	golang.org/x/net v0.17.0
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
