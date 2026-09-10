@@ -21,6 +21,14 @@ jobs:
         with:
           go-version: stable
           cache: false
+      - name: Install audio test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y lame espeak-ng espeak-ng-data ffmpeg sox libsox-fmt-mp3
+      - name: Install API code generator
+        run: go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.4
+      - name: Generate API bindings from the checked-in specification
+        run: go generate ./internal/v1
       - name: Download dependencies
         run: go mod download
       - name: Verify dependency integrity
