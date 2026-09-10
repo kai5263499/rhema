@@ -23,12 +23,14 @@ jobs:
           cache: false
       - name: Install audio test dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y lame espeak-ng espeak-ng-data ffmpeg sox libsox-fmt-mp3
+          sudo apt-get update > /tmp/apt-update.log 2>&1 || { cat /tmp/apt-update.log; exit 1; }
+          sudo apt-get install --no-install-recommends -y lame espeak-ng espeak-ng-data ffmpeg sox libsox-fmt-mp3 > /tmp/apt-install.log 2>&1 || { cat /tmp/apt-install.log; exit 1; }
       - name: Install API code generator
         run: go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.12.4
       - name: Generate API bindings from the checked-in specification
         run: go generate ./internal/v1
+      - name: Resolve missing API runtime requirements for review
+        run: go get github.com/deepmap/oapi-codegen/pkg/runtime@v1.12.4 github.com/getkin/kin-openapi/openapi3@v0.107.0
       - name: Download dependencies
         run: go mod download
       - name: Verify dependency integrity
