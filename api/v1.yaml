@@ -26,7 +26,7 @@ paths:
       description: K8 Liviness
       responses:
         default:
-          $ref: "#/components/responses/Liveness"
+          $ref: "#/components/responses/LivenessResponse"
   /ready:
     get:
       tags: [v1]
@@ -34,7 +34,7 @@ paths:
       description: K8 Readiness
       responses:
         default:
-          $ref: "#/components/responses/Readiness"
+          $ref: "#/components/responses/ReadinessResponse"
   /request:
     post:
       tags: [v1]
@@ -229,12 +229,12 @@ components:
           type: string
   requestBodies:
   responses:
-    Liveness:
+    LivenessResponse:
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/Liveness"
-    Readiness:
+    ReadinessResponse:
       content:
         application/json:
           schema:

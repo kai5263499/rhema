@@ -43,14 +43,16 @@ func TestTMExecCommandHelper(t *testing.T) {
 		return
 	}
 
-	fmt.Fprintf(os.Stdout, os.Getenv("STDOUT"))
+	fmt.Fprint(os.Stdout, os.Getenv("STDOUT"))
 	i, _ := strconv.Atoi(os.Getenv("EXIT_STATUS"))
 	os.Exit(i)
 }
 
 var _ = Describe("text2mp3", func() {
 	It("Should perform a basic conversion", func() {
-		var err error
+		tmpDir, err := ioutil.TempDir("", "rhema-text2mp3-test-")
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(tmpDir)
 
 		processTMCmdInput = func(args []string) (cmdOutput string, exitStatus int) {
 			return "all ok", 0
@@ -60,7 +62,7 @@ var _ = Describe("text2mp3", func() {
 
 		tm := Text2Mp3{
 			cfg: &domain.Config{
-				LocalPath:      "/tmp",
+				TmpPath:        tmpDir,
 				WordsPerMinute: 350,
 				EspeakVoice:    "f5",
 			},
@@ -80,7 +82,7 @@ var _ = Describe("text2mp3", func() {
 		txtFilename, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		txtFullFilename := filepath.Join(tm.cfg.LocalPath, txtFilename)
+		txtFullFilename := filepath.Join(tm.cfg.TmpPath, txtFilename)
 
 		ci.Type = pb.ContentType_AUDIO
 		mp3FileName, err := GetFilePath(ci)
@@ -88,7 +90,7 @@ var _ = Describe("text2mp3", func() {
 
 		ci.Type = pb.ContentType_TEXT
 
-		mp3FullFilename := filepath.Join(tm.cfg.LocalPath, mp3FileName)
+		mp3FullFilename := filepath.Join(tm.cfg.TmpPath, mp3FileName)
 		wavFullFilename := fmt.Sprintf("%s%s", mp3FullFilename[:len(mp3FullFilename)-3], "wav")
 
 		err = os.MkdirAll(path.Dir(txtFullFilename), os.ModePerm)
@@ -116,9 +118,10 @@ var _ = Describe("text2mp3", func() {
 		err = os.Remove(txtFullFilename)
 		Expect(err).To(BeNil())
 
-		// This should return an error because the convert function should clean up after itself
+		// The converter should remove its intermediate WAV file.
 		err = os.Remove(wavFullFilename)
 		Expect(err).To(Not(BeNil()))
+		Expect(os.IsNotExist(err)).To(BeTrue())
 
 		err = os.Remove(mp3FullFilename)
 		Expect(err).To(BeNil())

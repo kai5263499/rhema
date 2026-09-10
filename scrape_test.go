@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 
 	"github.com/kai5263499/rhema/domain"
 	pb "github.com/kai5263499/rhema/generated"
@@ -21,12 +22,15 @@ type htmlScrapeTest struct {
 
 var _ = Describe("scrape", func() {
 	It("Should perform a basic scrape", func() {
+		tmpDir, err := ioutil.TempDir("", "rhema-scrape-test-")
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(tmpDir)
 
 		testText := "This should come from a file and contain real messy HTML examples"
 
 		scrape := Scrape{
 			cfg: &domain.Config{
-				LocalPath: "/tmp",
+				TmpPath: tmpDir,
 			},
 		}
 
@@ -42,7 +46,11 @@ var _ = Describe("scrape", func() {
 			Title:   "my title",
 		}
 
-		err := scrape.Convert(ci)
+		// Process classifies URI requests before passing them to the scraper.
+		processor := &RequestProcessor{}
+		ci.Type = processor.parseRequestTypeFromURI(ci.Uri)
+		Expect(ci.Type).To(Equal(pb.ContentType_TEXT))
+		err = scrape.Convert(ci)
 		Expect(err).To(BeNil())
 
 		Expect(ci.Text).To(Not(BeNil()))
@@ -50,6 +58,9 @@ var _ = Describe("scrape", func() {
 		Expect(ci.Text).To(Equal(testText))
 	})
 	It("Should perform complex scrapes using stored HTML", func() {
+		tmpDir, err := ioutil.TempDir("", "rhema-scrape-html-test-")
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(tmpDir)
 
 		tests := []htmlScrapeTest{
 			{
@@ -71,7 +82,7 @@ var _ = Describe("scrape", func() {
 
 		scrape := Scrape{
 			cfg: &domain.Config{
-				LocalPath:        "/tmp",
+				TmpPath:          tmpDir,
 				TitleLengthLimit: 120,
 			},
 		}
@@ -86,6 +97,9 @@ var _ = Describe("scrape", func() {
 			}))
 
 			tc.request.Uri = ts.URL
+			processor := &RequestProcessor{}
+			tc.request.Type = processor.parseRequestTypeFromURI(tc.request.Uri)
+			Expect(tc.request.Type).To(Equal(pb.ContentType_TEXT))
 
 			err = scrape.Convert(tc.request)
 			ts.Close()
@@ -93,6 +107,7 @@ var _ = Describe("scrape", func() {
 			Expect(err).To(BeNil())
 
 			Expect(tc.request.Text).To(Not(BeNil()))
+			Expect(tc.request.Text).ToNot(BeEmpty())
 			Expect(tc.request.Title).To(Equal(tc.wanted.Title))
 			Expect(tc.request.Type).To(Equal(tc.wanted.Type))
 			Expect(tc.request.RequestHash).To(Equal(tc.wanted.RequestHash))

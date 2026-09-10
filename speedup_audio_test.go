@@ -43,14 +43,16 @@ func TestSUAExecCommandHelper(t *testing.T) {
 		return
 	}
 
-	fmt.Fprintf(os.Stdout, os.Getenv("STDOUT"))
+	fmt.Fprint(os.Stdout, os.Getenv("STDOUT"))
 	i, _ := strconv.Atoi(os.Getenv("EXIT_STATUS"))
 	os.Exit(i)
 }
 
 var _ = Describe("speedup_audio", func() {
 	It("Should perform a basic conversion", func() {
-		var err error
+		tmpDir, err := ioutil.TempDir("", "rhema-speedup-test-")
+		Expect(err).To(BeNil())
+		defer os.RemoveAll(tmpDir)
 
 		processSpeedUpCmdInput = func(args []string) (cmdOutput string, exitStatus int) {
 			return "all ok", 0
@@ -60,8 +62,8 @@ var _ = Describe("speedup_audio", func() {
 
 		tm := SpeedupAudio{
 			cfg: &domain.Config{
-				LocalPath: "/tmp",
-				Atempo:    "2.0",
+				TmpPath: tmpDir,
+				Atempo:  "2.0",
 			},
 			execCommand: fakeSUAExecCommand,
 		}
@@ -79,7 +81,7 @@ var _ = Describe("speedup_audio", func() {
 		slowFilename, err := GetFilePath(ci)
 		Expect(err).To(BeNil())
 
-		slowFullFilename := filepath.Join(tm.cfg.LocalPath, slowFilename)
+		slowFullFilename := filepath.Join(tm.cfg.TmpPath, slowFilename)
 		tmpFullFilename := fmt.Sprintf("%s%s", slowFullFilename[:len(slowFullFilename)-4], "-TMP.mp3")
 
 		err = os.MkdirAll(path.Dir(slowFullFilename), os.ModePerm)
@@ -94,5 +96,9 @@ var _ = Describe("speedup_audio", func() {
 		err = tm.Convert(ci)
 		Expect(err).To(BeNil())
 		Expect(ci.Type).To(Equal(pb.ContentType_AUDIO))
+		_, err = os.Stat(slowFullFilename)
+		Expect(err).To(BeNil())
+		_, err = os.Stat(tmpFullFilename)
+		Expect(os.IsNotExist(err)).To(BeTrue())
 	})
 })
