@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  go-tests:
+    name: Go tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: stable
+          cache: false
+      - name: Download dependencies
+        run: go mod download
+      - name: Verify dependency integrity
+        run: go mod verify
+      - name: Run all package tests
+        run: go test -count=1 -timeout=15m ./...
+      - name: Check module metadata is committed
+        if: always()
+        run: git diff --exit-code -- go.mod go.sum
